@@ -382,6 +382,34 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         # ---- API endpoints (Android launcher watchdog + HUD) ----
+        if path.startswith("/api/tts"):
+            parsed = urllib.parse.urlparse(self.path)
+            params = urllib.parse.parse_qs(parsed.query)
+            text = params.get("text", ["Hello"])[0]
+            voice = params.get("voice", ["en-US-AnaNeural"])[0] # Genuine Neural Child Voice
+
+            try:
+                import asyncio
+                import edge_tts
+
+                temp_mp3 = ROOT / "face" / "static" / "temp_speech.mp3"
+                communicate = edge_tts.Communicate(text, voice, rate="+6%", pitch="+15Hz")
+                asyncio.run(communicate.save(str(temp_mp3)))
+
+                with open(temp_mp3, "rb") as f:
+                    data = f.read()
+
+                self.send_response(200)
+                self.send_header("Content-Type", "audio/mpeg")
+                self.send_header("Content-Length", str(len(data)))
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(data)
+                return
+            except Exception as ex:
+                self.send_error(500, f"TTS error: {ex}")
+                return
+
         if path == "/api/health":
             uptime = int(_time.monotonic() - _server_start_time)
             self._send_json({

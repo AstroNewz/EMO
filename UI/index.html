@@ -271,7 +271,7 @@
 
 <!-- SPEECH BUBBLE DIALOG -->
 <div id="speech-bubble">
-  <div id="bubble-text">Hi! I'm EMO, your AI companion. Click the 🎙️ mic to talk to me!</div>
+  <div id="bubble-text">Hi! I'm EMO, your AI companion. Click the 🎙️ mic to start talking!</div>
 </div>
 
 <!-- ENLARGED EMO STAGE -->
@@ -345,7 +345,7 @@
         <g id="eyeR" class="eye">
           <ellipse class="spot open" cx="127" cy="70" rx="13" ry="14.2"/>
           <path class="lid" d="M114 68 q13 11 26 0"/>
-          <path class="cross" d="M119 63 l16 15 M135 63 l-16 15"/>
+          <path class="cross" d="M135 63 l-16 15"/>
         </g>
 
         <ellipse class="spot" cx="72" cy="82" rx="5.2" ry="5.8"/>
@@ -434,7 +434,7 @@
 <!-- AI CHAT CONTAINER WITH MIC -->
 <div id="chat-container">
   <input type="text" id="chat-input" placeholder="Talk or click 🎙️ to speak..." autocomplete="off" />
-  <button id="mic-btn" title="Toggle Microphone">🎙️</button>
+  <button id="mic-btn" title="Toggle Continuous Microphone">🎙️</button>
   <button id="send-btn">SEND</button>
 </div>
 
@@ -570,15 +570,32 @@
     setTimeout(function(){ svg.classList.remove('squish'); }, 480);
   });
 
-  /* ---------- SLOWER NATURAL SPEECH ---------- */
-  function speakText(text) {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      var utt = new SpeechSynthesisUtterance(text);
-      utt.rate = 0.88; // Slower, clearer speech rate
-      utt.pitch = 1.05;
-      window.speechSynthesis.speak(utt);
-    }
+  /* ---------- REAL NEURAL CHILD VOICE TTS ---------- */
+  function speakText(text, callback) {
+    if (!text) { if(callback) callback(); return; }
+
+    var audio = new Audio("/api/tts?text=" + encodeURIComponent(text));
+
+    audio.onended = function() {
+      if (callback) callback();
+    };
+
+    audio.onerror = function() {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        var utt = new SpeechSynthesisUtterance(text);
+        utt.pitch = 1.8;
+        utt.rate = 1.05;
+        utt.onend = function() { if (callback) callback(); };
+        window.speechSynthesis.speak(utt);
+      } else {
+        if (callback) callback();
+      }
+    };
+
+    audio.play().catch(function() {
+      if (callback) callback();
+    });
   }
 
   function inferEmotion(text) {
@@ -620,18 +637,29 @@
       bubbleText.textContent = reply;
       var replyEmo = inferEmotion(reply);
       setEmotion(replyEmo);
-      speakText(reply);
+
+      // Speak reply in real neural child voice, then auto-resume mic listening loop!
+      speakText(reply, function() {
+        if (autoListenEnabled) {
+          setTimeout(startListening, 300);
+        }
+      });
     })
     .catch(function(){
       bubbleText.textContent = "I'm right here with you!";
       setEmotion('love');
-      speakText("I'm right here with you!");
+      speakText("I'm right here with you!", function() {
+        if (autoListenEnabled) {
+          setTimeout(startListening, 300);
+        }
+      });
     });
   }
 
-  /* ---------- WEB AUDIO MIC SPEECH RECOGNITION ---------- */
+  /* ---------- CONTINUOUS LOOP WEB AUDIO MIC ---------- */
   var recognition = null;
   var isListening = false;
+  var autoListenEnabled = false;
   var micBtn = document.getElementById('mic-btn');
 
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -677,10 +705,18 @@
       alert("Microphone listening is supported in Chrome, Edge, or Android Chrome!");
       return;
     }
-    if (isListening) {
+    if (isListening || autoListenEnabled) {
+      autoListenEnabled = false;
       recognition.stop();
       stopListening();
     } else {
+      autoListenEnabled = true;
+      startListening();
+    }
+  }
+
+  function startListening() {
+    if (recognition && !isListening) {
       try {
         recognition.start();
       } catch (e) {}
@@ -689,7 +725,7 @@
 
   function stopListening() {
     isListening = false;
-    if (micBtn) {
+    if (micBtn && !autoListenEnabled) {
       micBtn.style.background = 'transparent';
       micBtn.style.color = '#f2f2f2';
       micBtn.style.borderColor = '#2a2a2a';
