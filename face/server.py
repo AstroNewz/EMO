@@ -584,19 +584,20 @@ class Handler(BaseHTTPRequestHandler):
                 # Google Workspace Integration Trigger (Calendar, Gmail, Drive)
                 if google_workspace.is_workspace_query(user_msg):
                     low = user_msg.lower()
-                    if any(k in low for k in ["email", "gmail", "inbox"]):
-                        ws_res = google_workspace.list_unread_emails()
-                    elif any(k in low for k in ["calendar", "schedule", "meeting", "event"]):
+                    if any(k in low for k in ["calendar", "schedule", "meeting", "event"]):
                         ws_res = google_workspace.list_calendar_events()
-                    else:
+                    elif any(k in low for k in ["drive", "doc", "file"]):
                         ws_res = google_workspace.search_drive_docs(user_msg)
+                    else:
+                        ws_res = google_workspace.search_emails(user_msg)
                     context_addons += f"\n\n[GOOGLE WORKSPACE DATA]:\n{ws_res}"
 
                 system = (
                     "You are EMO, a warm, cheerful, excitable AI companion. "
-                    "You have live Google/web search access and Google Workspace integration. "
-                    "Always answer in ONE short, friendly spoken sentence. "
-                    "Use light enthusiasm like 'Ooh!', 'Got it, Boss!', 'Yay!'."
+                    "STRICT TRUTH RULE: Base all answers about emails, calendar, drive, bank balances, or real-time facts strictly on the provided [LIVE SEARCH RESULTS] or [GOOGLE WORKSPACE DATA]. "
+                    "NEVER invent or hallucinate email details, senders, stipends, or bank account figures not present in the data. "
+                    "If no matching email exists in the data, state clearly 'I don't see any email about that in your inbox, Boss!'. "
+                    "Always answer in ONE or TWO short, friendly spoken sentences."
                 )
 
                 # Fetch full conversation history from JSON memory

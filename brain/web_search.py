@@ -1,7 +1,7 @@
 """
 EMO Live Google & Web Search Engine
 ====================================
-Fetches real-time web search results from Google & DuckDuckGo APIs
+Fetches real-time web search results from DuckDuckGo Lite & Wikipedia APIs
 for news, weather, stock prices, live events, and instant answers.
 """
 
@@ -21,63 +21,59 @@ def search_web(query, max_results=3):
 
     results = []
 
-    # 1. DuckDuckGo Instant Answer API
+    # 1. Real-time DDG Lite POST Web Search
     try:
-        ddg_url = f"https://api.duckduckgo.com/?q={urllib.parse.quote(query)}&format=json&no_html=1"
-        req = urllib.request.Request(ddg_url, headers={"User-Agent": "EMO-AI/1.0"})
+        url = "https://lite.duckduckgo.com/lite/"
+        params = urllib.parse.urlencode({'q': query}).encode('utf-8')
+        req = urllib.request.Request(url, data=params, headers={
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+            "Content-Type": "application/x-www-form-urlencoded"
+        })
         with urllib.request.urlopen(req, timeout=5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            abstract = data.get("AbstractText", "").strip()
-            if abstract:
-                results.append(f"Instant Fact: {abstract}")
-            
-            # Extract related topics
-            topics = data.get("RelatedTopics", [])
-            for t in topics[:2]:
-                txt = t.get("Text", "").strip()
-                if txt and txt not in results:
-                    results.append(f"Related: {txt}")
+            html_text = resp.read().decode("utf-8", errors="ignore")
+            tds = re.findall(r'<td[^>]*>(.*?)</td>', html_text, re.DOTALL)
+            for t in tds:
+                clean = html.unescape(re.sub(r'<[^>]+>', '', t)).strip()
+                # Exclude navigation links, short UI snippets, and meta headers
+                if len(clean) > 35 and "DuckDuckGo" not in clean and "Privacy" not in clean and "javascript" not in clean.lower():
+                    if not any(clean in r or r in clean for r in results):
+                        results.append(clean)
+                        if len(results) >= max_results:
+                            break
     except Exception as e:
-        print(f"[WebSearch] DDG API Error: {e}")
+        print(f"[WebSearch] DDG Lite Error: {e}")
 
-    # 2. DuckDuckGo / Google HTML Scraper fallback
-    if len(results) < 2:
+    # 2. Wikipedia Search API (Fallback for instant facts, biographies, & definitions)
+    if len(results) < max_results:
+        clean_q = re.sub(r'\b(who|what|where|when|why|how|is|are|was|were|the|a|an|current|latest|today|search|google|tell|me|about|find|for)\b', ' ', query, flags=re.IGNORECASE)
+        clean_q = ' '.join(clean_q.split()).strip() or query
         try:
-            encoded_q = urllib.parse.quote(query)
-            html_url = f"https://html.duckduckgo.com/html/?q={encoded_q}"
-            req = urllib.request.Request(
-                html_url,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-            )
-            with urllib.request.urlopen(req, timeout=5) as resp:
-                raw_html = resp.read().decode("utf-8", errors="ignore")
-                
-            snippets = re.findall(r'class="result__snippet[^">]*>(.*?)</a>', raw_html, re.DOTALL)
-            for s in snippets[:3]:
-                clean_text = re.sub(r'<[^>]+>', '', s)
-                clean_text = html.unescape(clean_text).strip()
-                if clean_text and clean_text not in results:
-                    results.append(clean_text)
-        except Exception as e:
-            print(f"[WebSearch] HTML Scrape Error: {e}")
-
-    # 3. Wikipedia Knowledge Fallback
-    if not results:
-        try:
-            wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(query)}"
-            req = urllib.request.Request(wiki_url, headers={"User-Agent": "EMO-AI/1.0"})
+            wurl = f"https://en.wikipedia.org/w/api.php?action=opensearch&search={urllib.parse.quote(clean_q)}&limit=3&format=json"
+            req = urllib.request.Request(wurl, headers={"User-Agent": "EMO-Assistant/1.0"})
             with urllib.request.urlopen(req, timeout=4) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
-                extract = data.get("extract", "").strip()
-                if extract:
-                    results.append(extract)
-        except Exception:
-            pass
+                titles = data[1] if len(data) > 1 else []
+                for t in titles[:2]:
+                    surl = f"https://en.wikipedia.org/api/rest_v1/page/summary/{urllib.parse.quote(t)}"
+                    sreq = urllib.request.Request(surl, headers={"User-Agent": "EMO-Assistant/1.0"})
+                    try:
+                        with urllib.request.urlopen(sreq, timeout=3) as sresp:
+                            sdata = json.loads(sresp.read().decode("utf-8"))
+                            ext = sdata.get("extract", "").strip()
+                            if ext and len(ext) > 25 and "may refer to" not in ext.lower():
+                                if not any(ext[:40] in r for r in results):
+                                    results.append(ext)
+                                    if len(results) >= max_results:
+                                        break
+                    except Exception:
+                        pass
+        except Exception as e:
+            print(f"[WebSearch] Wikipedia Error: {e}")
 
     if results:
         return "\n".join(f"• {r}" for r in results[:max_results])
 
-    return f"Live web search for '{query}' returned no instant results."
+    return ""
 
 def is_search_needed(user_msg):
     """Detects if user prompt asks for live news, facts, scores, or web search."""
@@ -85,6 +81,7 @@ def is_search_needed(user_msg):
     keywords = [
         "search", "google", "latest", "news", "today", "current", "weather",
         "score", "match", "stock", "price", "who is", "what is", "where is",
-        "when did", "happened", "updates", "result", "winner", "president", "price of"
+        "when did", "happened", "updates", "result", "winner", "president", "price of",
+        "prime minister"
     ]
     return any(k in low for k in keywords)

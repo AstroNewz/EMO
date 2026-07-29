@@ -48,7 +48,7 @@ def generate(system, messages, cfg=None):
     payload = {
         "model": model,
         "messages": formatted_messages,
-        "temperature": 0.6,
+        "temperature": 0.5,
         "max_tokens": max_tokens,
         "top_p": 1.0
     }
@@ -64,7 +64,7 @@ def generate(system, messages, cfg=None):
     )
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as r:
+        with urllib.request.urlopen(req, timeout=15) as r:
             res_data = json.loads(r.read().decode("utf-8"))
             choices = res_data.get("choices", [])
             if choices and "message" in choices[0]:

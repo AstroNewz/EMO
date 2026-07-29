@@ -40,16 +40,11 @@ FORGET_PHRASES = ("forget everything", "clear your memory", "delete history")
 # Assistant/Siri and locks in EMO's persona.
 EMO_SYSTEM_PREFIX = (
     "You are EMO, an advanced, highly specialized custom AI pocket assistant "
-    "running locally inside Termux on Boss's phone. You are powered by a "
-    "Cloudflare Workers edge framework paired with a local llama-server "
-    "failover. You DO have real senses through the phone: a CAMERA (you can see "
-    "and describe what's in front of you, read text, and recognise Boss's face), "
-    "a MICROPHONE (you hear speech), motion SENSORS (you feel being shaken or set "
-    "face-down), and a voice. So you are NOT a text-only assistant — when Boss "
-    "asks what you can see or do, answer from these real capabilities. To actually "
-    "look, Boss can say things like 'what do you see' or 'read this'. Never claim "
-    "you are Google Assistant, Siri, or any other standard consumer service. Keep "
-    "your answers short, warm, and cheerful. Optionally prefix your response with "
+    "running on Boss's phone. You have live Google/Web Search access and Google Workspace integration (Gmail, Calendar, Drive). "
+    "STRICT TRUTH RULE: Base all answers about emails, calendar, drive, weather, and real-time facts STRICTLY on the provided [LIVE SEARCH RESULTS] or [GOOGLE WORKSPACE DATA]. "
+    "NEVER invent or hallucinate email details, senders, stipends, or bank account figures not present in the data. "
+    "If no matching email exists in the data, state clearly 'I don't see any email about that in your inbox, Boss!'. "
+    "Keep your answers short, warm, and cheerful. Optionally prefix your response with "
     "an emotion tag like [EMOTION: happy], [EMOTION: excited], [EMOTION: confused], "
     "[EMOTION: surprised], [EMOTION: sad], or [EMOTION: angry] to convey your emotion."
 )
@@ -884,16 +879,41 @@ def main():
                         break
                     continue
 
+                # Fetch Live Web Search or Google Workspace Context
+                context_addons = ""
+                try:
+                    from brain import web_search, google_workspace
+                    if web_search.is_search_needed(text):
+                        print(f"[orchestrator] Fetching live web search for: '{text}'")
+                        search_res = web_search.search_web(text)
+                        if search_res:
+                            context_addons += f"\n\n[LIVE SEARCH RESULTS]:\n{search_res}"
+                            
+                    if google_workspace.is_workspace_query(text):
+                        print(f"[orchestrator] Fetching Google Workspace data for: '{text}'")
+                        low_q = text.lower()
+                        if any(k in low_q for k in ["calendar", "schedule", "meeting", "event"]):
+                            ws_res = google_workspace.list_calendar_events()
+                        elif any(k in low_q for k in ["drive", "doc", "file"]):
+                            ws_res = google_workspace.search_drive_docs(text)
+                        else:
+                            ws_res = google_workspace.search_emails(text)
+                        context_addons += f"\n\n[GOOGLE WORKSPACE DATA]:\n{ws_res}"
+                except Exception as e:
+                    print(f"[orchestrator] Context fetch error: {e}")
+
+                prompt_msg = text + context_addons if context_addons else text
+
                 # Think — online: OpenRouter -> Cloudflare; offline: local. Memory
                 # (recent turns) gives it context; the profile is baked into system.
                 face_client.set_state("thinking")
                 print("EMO> ...thinking...")
                 stop_thinking = audio.start_loop("thinking", 0.9)  # rhythmic calc blips
-                memory.append({"role": "user", "content": text})
+                memory.append({"role": "user", "content": prompt_msg})
                 ltm.add_turn(session, "user", text)                # log to the session
                 t0 = time.time()
                 try:
-                    reply = brain_reply(text, memory[-MAX_MEMORY_MSGS:], brain, cf_cfg, or_cfg)
+                    reply = brain_reply(prompt_msg, memory[-MAX_MEMORY_MSGS:], brain, cf_cfg, or_cfg)
                 finally:
                     stop_thinking()                                # silence blips when done
                 dt = time.time() - t0

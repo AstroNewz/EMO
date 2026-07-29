@@ -11,6 +11,7 @@ Configured via `~/.emo_google_creds.json` or `config.yaml` (google_workspace blo
 """
 
 import os
+import re
 import json
 import urllib.request
 import urllib.parse
@@ -51,7 +52,7 @@ def list_calendar_events(max_results=5):
     """Lists upcoming events from primary Google Calendar."""
     token = get_access_token()
     if not token:
-        return "Google Workspace is not connected yet. Add your Google OAuth token to connect!"
+        return "Google Account is not connected yet. Add your Google OAuth token to connect!"
         
     try:
         url = f"https://www.googleapis.com/calendar/v3/calendars/primary/events?maxResults={max_results}&orderBy=startTime&singleEvents=true"
@@ -72,20 +73,33 @@ def list_calendar_events(max_results=5):
         return f"Google Calendar query error: {e}"
 
 # ---------- GMAIL ----------
-def list_unread_emails(max_results=5):
-    """Lists recent unread emails from Gmail inbox."""
+def fetch_emails(query=None, max_results=5):
+    """Fetches Gmail messages matching query (or recent inbox messages), including subject and body preview snippet."""
     token = get_access_token()
     if not token:
-        return "Google Workspace is not connected yet. Connect your Google account to read emails!"
+        return "Google Account is not connected yet. Connect your personal or work Google account to read emails!"
         
     try:
-        url = f"https://gmail.googleapis.com/gmail/v1/users/me/messages?q=is:unread&maxResults={max_results}"
+        if query and not query.startswith("q="):
+            # Clean up user query for Gmail search
+            clean_q = re.sub(r'\b(check|my|emails?|gmail|inbox|search|find|for|about|messages?|any|the|a|an)\b', ' ', query, flags=re.IGNORECASE)
+            clean_q = ' '.join(clean_q.split()).strip()
+            q_str = f"q={urllib.parse.quote(clean_q)}" if clean_q else "q=is:unread"
+        elif query:
+            q_str = query
+        else:
+            q_str = "q=is:unread"
+
+        url = f"https://gmail.googleapis.com/gmail/v1/users/me/messages?{q_str}&maxResults={max_results}"
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             messages = data.get("messages", [])
             if not messages:
-                return "You have no unread emails in your Gmail inbox!"
+                # Fallback to general inbox if specific search returned no results
+                if query and "is:unread" not in q_str:
+                    return fetch_emails(query="is:unread", max_results=max_results)
+                return "You have no relevant unread emails in your Gmail inbox!"
                 
             email_list = []
             for m in messages[:max_results]:
@@ -97,27 +111,36 @@ def list_unread_emails(max_results=5):
                     headers = msg_data.get("payload", {}).get("headers", [])
                     subject = next((h["value"] for h in headers if h["name"].lower() == "subject"), "No Subject")
                     sender = next((h["value"] for h in headers if h["name"].lower() == "from"), "Unknown Sender")
-                    email_list.append(f"• From: {sender} | Subject: {subject}")
+                    snippet = msg_data.get("snippet", "").strip()
+                    email_list.append(f"• From: {sender} | Subject: {subject}\n  Preview: {snippet[:150]}")
             return "\n".join(email_list)
     except Exception as e:
         return f"Gmail query error: {e}"
+
+def list_unread_emails(max_results=5):
+    return fetch_emails(query="is:unread", max_results=max_results)
+
+def search_emails(query, max_results=5):
+    return fetch_emails(query=query, max_results=max_results)
 
 # ---------- GOOGLE DRIVE & DOCS ----------
 def search_drive_docs(query, max_results=4):
     """Searches files and Google Docs in Google Drive."""
     token = get_access_token()
     if not token:
-        return "Google Workspace is not connected yet."
+        return "Google Account is not connected yet."
         
     try:
-        q_str = urllib.parse.quote(f"name contains '{query}'")
+        clean_q = re.sub(r'\b(search|drive|google|doc|docs|files?|find|my|for|about)\b', ' ', query, flags=re.IGNORECASE)
+        clean_q = ' '.join(clean_q.split()).strip() or "document"
+        q_str = urllib.parse.quote(f"name contains '{clean_q}'")
         url = f"https://www.googleapis.com/drive/v3/files?q={q_str}&pageSize={max_results}"
         req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
         with urllib.request.urlopen(req, timeout=6) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             files = data.get("files", [])
             if not files:
-                return f"No Google Drive files matching '{query}' were found."
+                return f"No Google Drive files matching '{clean_q}' were found."
                 
             file_list = [f"• {f.get('name')} ({f.get('mimeType', 'file').split('.')[-1]})" for f in files]
             return "\n".join(file_list)
@@ -129,6 +152,7 @@ def is_workspace_query(user_msg):
     low = user_msg.lower()
     keywords = [
         "google calendar", "schedule", "events", "meetings", "appointment",
-        "unread email", "gmail", "inbox", "my emails", "google drive", "google doc", "my files"
+        "unread email", "gmail", "inbox", "my emails", "google drive", "google doc", "my files",
+        "email", "mail", "messages", "internship", "isro", "stipend", "bank", "received", "from"
     ]
     return any(k in low for k in keywords)
