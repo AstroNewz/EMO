@@ -1,0 +1,21 @@
+{
+  "user_facts": [],
+  "chat_history": [
+    {
+      "role": "user",
+      "content": "My favorite color is cyan!"
+    },
+    {
+      "role": "assistant",
+      "content": "Yay, I love cyan too, it's such a bright and happy color!"
+    },
+    {
+      "role": "user",
+      "content": "Do you remember what my favorite color is?"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, Boss, your favorite color is cyan!"
+    }
+  ]
+}

@@ -548,27 +548,36 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "event": event})
             return
 
-        # Direct Ultra-Fast NVIDIA AI Chat Endpoint (< 0.5s response)
+        # Direct Ultra-Fast NVIDIA AI Chat Endpoint (< 0.5s response) with JSON Memory
         if path == "/api/ai/chat":
             body = self._read_json()
             if not body or "message" not in body:
                 self._send_json({"error": "missing message"}, code=400)
                 return
-            
+
             user_msg = body.get("message", "").strip()
             if not user_msg:
                 self._send_json({"reply": "I'm listening, Boss!"})
                 return
 
             try:
-                from brain import api_llm
+                from brain import api_llm, memory
                 system = (
                     "You are EMO, a warm, cheerful, excitable AI companion. "
+                    "You have a sharp memory and remember every detail the user tells you. "
                     "Always answer in ONE short, friendly spoken sentence. "
                     "Use light enthusiasm like 'Ooh!', 'Got it, Boss!', 'Yay!'."
                 )
-                history = [{"role": "user", "content": user_msg}]
+
+                # Fetch full conversation history from JSON memory
+                history = memory.get_history_for_llm()
+                history.append({"role": "user", "content": user_msg})
+
                 reply = api_llm.generate(system, history)
+
+                # Save turn to JSON memory
+                memory.add_exchange(user_msg, reply)
+
                 self._send_json({"ok": True, "reply": reply})
             except Exception as e:
                 print(f"[chat.api] Error: {e}")

@@ -97,7 +97,7 @@
     stroke:var(--ink);
     stroke-width:2;
     stroke-linecap:round;
-    transition:d .22s ease;
+    transition:d .1s ease;
   }
   .blush{fill:var(--pink);opacity:0}
   #blush{transition:opacity .3s ease}
@@ -345,7 +345,7 @@
         <g id="eyeR" class="eye">
           <ellipse class="spot open" cx="127" cy="70" rx="13" ry="14.2"/>
           <path class="lid" d="M114 68 q13 11 26 0"/>
-          <path class="cross" d="M135 63 l-16 15"/>
+          <path class="cross" d="M119 63 l16 15 M135 63 l-16 15"/>
         </g>
 
         <ellipse class="spot" cx="72" cy="82" rx="5.2" ry="5.8"/>
@@ -570,30 +570,73 @@
     setTimeout(function(){ svg.classList.remove('squish'); }, 480);
   });
 
-  /* ---------- REAL NEURAL CHILD VOICE TTS ---------- */
+  /* ---------- LIP-SYNC TALKING MOUTH ANIMATION ---------- */
+  var talkInterval = null;
+  var talkShapes = [
+    'M94 87 q9 11 18 0 z',         // open grin
+    'M97 90 q5.5 5.5 11 0',         // small smile
+    'M102 85 a4.8 5.8 0 1 0 .1 0',  // open 'O'
+    'M95 89 q7.5 7 15 0',          // smile
+    'M97 92 h12'                   // flat
+  ];
+
+  function startTalkingMouth() {
+    stopTalkingMouth();
+    var idx = 0;
+    talkInterval = setInterval(function() {
+      idx = (idx + 1) % talkShapes.length;
+      mouth.setAttribute('d', talkShapes[idx]);
+    }, 115);
+  }
+
+  function stopTalkingMouth() {
+    if (talkInterval) {
+      clearInterval(talkInterval);
+      talkInterval = null;
+    }
+    var e = EMO[current];
+    if (e && M[e.mouth]) {
+      mouth.setAttribute('d', M[e.mouth]);
+    } else {
+      mouth.setAttribute('d', M.small);
+    }
+  }
+
+  /* ---------- REAL NEURAL CHILD VOICE TTS WITH LIP SYNC ---------- */
   function speakText(text, callback) {
     if (!text) { if(callback) callback(); return; }
 
     var audio = new Audio("/api/tts?text=" + encodeURIComponent(text));
 
+    audio.onplay = function() {
+      startTalkingMouth();
+    };
+
     audio.onended = function() {
+      stopTalkingMouth();
       if (callback) callback();
     };
 
     audio.onerror = function() {
+      stopTalkingMouth();
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
         var utt = new SpeechSynthesisUtterance(text);
         utt.pitch = 1.8;
         utt.rate = 1.05;
-        utt.onend = function() { if (callback) callback(); };
+        utt.onstart = function() { startTalkingMouth(); };
+        utt.onend = function() { stopTalkingMouth(); if (callback) callback(); };
+        utt.onerror = function() { stopTalkingMouth(); if (callback) callback(); };
         window.speechSynthesis.speak(utt);
       } else {
         if (callback) callback();
       }
     };
 
-    audio.play().catch(function() {
+    audio.play().then(function() {
+      startTalkingMouth();
+    }).catch(function() {
+      stopTalkingMouth();
       if (callback) callback();
     });
   }
@@ -638,7 +681,7 @@
       var replyEmo = inferEmotion(reply);
       setEmotion(replyEmo);
 
-      // Speak reply in real neural child voice, then auto-resume mic listening loop!
+      // Speak reply with lip sync, then auto-resume mic listening loop!
       speakText(reply, function() {
         if (autoListenEnabled) {
           setTimeout(startListening, 300);
