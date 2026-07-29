@@ -207,10 +207,10 @@
     100%{transform:scale(1,1)}
   }
 
-  /* ---------- CHAT INPUT CONTAINER ---------- */
+  /* ---------- CHAT INPUT CONTAINER & MIC ---------- */
   #chat-container {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     width: min(520px, 94vw);
     margin-top: 4px;
   }
@@ -227,11 +227,27 @@
     transition: border-color 0.2s;
   }
   #chat-input:focus { border-color: var(--cream); }
+
+  #mic-btn {
+    background: transparent;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 0 14px;
+    color: #f2f2f2;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #mic-btn:hover { border-color: var(--cream); }
+
   #send-btn {
     background: var(--cream);
     border: none;
     border-radius: 10px;
-    padding: 0 22px;
+    padding: 0 20px;
     color: #000;
     font-weight: 600;
     font-size: 12px;
@@ -255,11 +271,11 @@
 
 <!-- SPEECH BUBBLE DIALOG -->
 <div id="speech-bubble">
-  <div id="bubble-text">Hi! I'm EMO, your AI companion. Talk to me!</div>
+  <div id="bubble-text">Hi! I'm EMO, your AI companion. Click the 🎙️ mic to talk to me!</div>
 </div>
 
 <!-- ENLARGED EMO STAGE -->
-<div id="stage" title="click me">
+<div id="stage" title="click me to talk">
 <svg id="wisp" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="EMO the spirit">
   <defs>
     <radialGradient id="skin" cx="34%" cy="26%" r="82%">
@@ -415,9 +431,10 @@
 </svg>
 </div>
 
-<!-- AI CHAT CONTAINER -->
+<!-- AI CHAT CONTAINER WITH MIC -->
 <div id="chat-container">
-  <input type="text" id="chat-input" placeholder="Talk to EMO..." autocomplete="off" />
+  <input type="text" id="chat-input" placeholder="Talk or click 🎙️ to speak..." autocomplete="off" />
+  <button id="mic-btn" title="Toggle Microphone">🎙️</button>
   <button id="send-btn">SEND</button>
 </div>
 
@@ -549,7 +566,7 @@
     svg.classList.remove('squish');
     void svg.offsetWidth;
     svg.classList.add('squish');
-    setEmotion(Math.random() < 0.45 ? 'love' : (Math.random() < 0.5 ? 'excited' : 'happy'));
+    toggleListening();
     setTimeout(function(){ svg.classList.remove('squish'); }, 480);
   });
 
@@ -610,6 +627,77 @@
       setEmotion('love');
       speakText("I'm right here with you!");
     });
+  }
+
+  /* ---------- WEB AUDIO MIC SPEECH RECOGNITION ---------- */
+  var recognition = null;
+  var isListening = false;
+  var micBtn = document.getElementById('mic-btn');
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRec();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = function() {
+      isListening = true;
+      if (micBtn) {
+        micBtn.style.background = '#F2A2AC';
+        micBtn.style.color = '#000';
+        micBtn.style.borderColor = '#F2A2AC';
+      }
+      setEmotion('curious');
+      document.getElementById('bubble-text').textContent = "Listening to you, Boss...";
+    };
+
+    recognition.onresult = function(event) {
+      var transcript = '';
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      document.getElementById('chat-input').value = transcript;
+      if (event.results[0].isFinal) {
+        sendChat();
+      }
+    };
+
+    recognition.onerror = function(e) {
+      stopListening();
+    };
+
+    recognition.onend = function() {
+      stopListening();
+    };
+  }
+
+  function toggleListening() {
+    if (!recognition) {
+      alert("Microphone listening is supported in Chrome, Edge, or Android Chrome!");
+      return;
+    }
+    if (isListening) {
+      recognition.stop();
+      stopListening();
+    } else {
+      try {
+        recognition.start();
+      } catch (e) {}
+    }
+  }
+
+  function stopListening() {
+    isListening = false;
+    if (micBtn) {
+      micBtn.style.background = 'transparent';
+      micBtn.style.color = '#f2f2f2';
+      micBtn.style.borderColor = '#2a2a2a';
+    }
+  }
+
+  if (micBtn) {
+    micBtn.addEventListener('click', toggleListening);
   }
 
   document.getElementById('send-btn').addEventListener('click', sendChat);
