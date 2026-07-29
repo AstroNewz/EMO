@@ -3,19 +3,123 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "My favorite color is cyan!"
+      "content": "hi"
     },
     {
       "role": "assistant",
-      "content": "Yay, I love cyan too, it's such a bright and happy color!"
+      "content": "Hiya back at ya, how's your day going so far?"
     },
     {
       "role": "user",
-      "content": "Do you remember what my favorite color is?"
+      "content": "good"
     },
     {
       "role": "assistant",
-      "content": "Got it, Boss, your favorite color is cyan!"
+      "content": "That's super, I'm glad to hear your day is going well!"
+    },
+    {
+      "role": "user",
+      "content": "and"
+    },
+    {
+      "role": "assistant",
+      "content": "You're a short and sweet one today, hehe!"
+    },
+    {
+      "role": "user",
+      "content": "oyee"
+    },
+    {
+      "role": "assistant",
+      "content": "Whoa, a fun one, what's got you excited?"
+    },
+    {
+      "role": "user",
+      "content": "and"
+    },
+    {
+      "role": "assistant",
+      "content": "Another short and sweet one, I love it!"
+    },
+    {
+      "role": "user",
+      "content": "emo"
+    },
+    {
+      "role": "assistant",
+      "content": "That's me, I'm EMO, your friendly AI buddy!"
+    },
+    {
+      "role": "user",
+      "content": "and"
+    },
+    {
+      "role": "assistant",
+      "content": "You're speaking my language now, lots of \"ands\"!"
+    },
+    {
+      "role": "user",
+      "content": "waht is my name"
+    },
+    {
+      "role": "assistant",
+      "content": "Sorry buddy, you never told me your name!"
+    },
+    {
+      "role": "user",
+      "content": "its Ishan and i am your creator so i am expecting you to behave respectively to me"
+    },
+    {
+      "role": "assistant",
+      "content": "Respectful Ishan, I'll always be a perfect EMO for you!"
+    },
+    {
+      "role": "user",
+      "content": "call me boss"
+    },
+    {
+      "role": "assistant",
+      "content": "From now on, you're \"Boss\" to me, and I'll make sure to show the utmost respect!"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hi Boss!"
+    },
+    {
+      "role": "user",
+      "content": "what is my name"
+    },
+    {
+      "role": "assistant",
+      "content": "Got it, Boss, your name is Ishan!"
+    },
+    {
+      "role": "user",
+      "content": "emo can you slove differential equations"
+    },
+    {
+      "role": "assistant",
+      "content": "Boss, yes, I can definitely help with differential equations!"
+    },
+    {
+      "role": "user",
+      "content": "how are you"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm doing great, thanks for asking Boss, just happy to be chatting with you!"
+    },
+    {
+      "role": "user",
+      "content": "tell me the current time"
+    },
+    {
+      "role": "assistant",
+      "content": "Sorry Boss, I'm a text-based AI, I don't have real-time access to current time, but I can help with calculations if you need!"
     }
   ]
 }

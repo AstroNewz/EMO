@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EMO — AI Companion</title>
+<title>EMO</title>
 <style>
   :root{
     --bg:#000;
@@ -11,7 +11,9 @@
     --cream:#F0DCA0;
     --pink:#F2A2AC;
     --fg:#f2f2f2;
-    --dim:#6d6d6d;
+    --dim:#555555;
+    --cyan:#00f3ff;
+    --green:#00ff88;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{height:100%}
@@ -24,26 +26,80 @@
     flex-direction:column;
     align-items:center;
     justify-content:center;
-    gap:12px;
+    gap:14px;
     padding:20px 16px;
     overflow:hidden;
     -webkit-font-smoothing:antialiased;
   }
 
-  header{text-align:center;margin-bottom:4px}
-  header h1{
-    font-size:clamp(22px,3.8vw,34px);
-    font-weight:300;
-    letter-spacing:.62em;
-    text-indent:.62em;
+  /* ---------- VECTOR CONTROL HUD BAR ---------- */
+  #hud-controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: min(520px, 94vw);
+    background: rgba(18, 18, 18, 0.75);
+    border: 1px solid #222222;
+    border-radius: 14px;
+    padding: 8px 16px;
+    backdrop-filter: blur(12px);
   }
-  header p{
-    margin-top:6px;
-    font-size:10px;
-    letter-spacing:.42em;
-    text-indent:.42em;
-    color:var(--dim);
+
+  .status-indicator-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
+
+  .led-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--dim);
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  }
+  .led-dot.scanning { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+  .led-dot.recognized { background: var(--green); box-shadow: 0 0 10px var(--green); }
+
+  #camera-preview-wrapper {
+    width: 48px;
+    height: 36px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid #333;
+    display: none;
+    background: #000;
+  }
+  #webcam-view {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+  }
+
+  .icon-controls-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .vector-icon-btn {
+    background: #181818;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: #a0a0a0;
+  }
+  .vector-icon-btn:hover { border-color: var(--cream); color: var(--fg); }
+  .vector-icon-btn.active { background: var(--cream); color: #000; border-color: var(--cream); }
+  .vector-icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
   /* ---------- SPEECH BUBBLE DIALOG ---------- */
   #speech-bubble {
@@ -66,8 +122,8 @@
 
   /* ---------- ENLARGED EMO STAGE ---------- */
   #stage{
-    width: min(65vh, 480px);
-    height: min(65vh, 480px);
+    width: min(62vh, 460px);
+    height: min(62vh, 460px);
     display: grid;
     place-items: center;
     cursor: pointer;
@@ -97,7 +153,7 @@
     stroke:var(--ink);
     stroke-width:2;
     stroke-linecap:round;
-    transition:d .1s ease;
+    transition:d .08s ease;
   }
   .blush{fill:var(--pink);opacity:0}
   #blush{transition:opacity .3s ease}
@@ -207,12 +263,12 @@
     100%{transform:scale(1,1)}
   }
 
-  /* ---------- CHAT INPUT CONTAINER WITH MIC ---------- */
+  /* ---------- CHAT INPUT CONTAINER ---------- */
   #chat-container {
     display: flex;
     gap: 8px;
     width: min(520px, 94vw);
-    margin-top: 4px;
+    margin-top: 2px;
   }
   #chat-input {
     flex: 1;
@@ -227,21 +283,6 @@
     transition: border-color 0.2s;
   }
   #chat-input:focus { border-color: var(--cream); }
-
-  #mic-btn {
-    background: transparent;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    padding: 0 14px;
-    color: #f2f2f2;
-    font-size: 14px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #mic-btn:hover { border-color: var(--cream); }
 
   #send-btn {
     background: var(--cream);
@@ -264,19 +305,40 @@
 </head>
 <body>
 
-<header>
-  <h1>EMO</h1>
-  <p>your companion</p>
-</header>
+<!-- MINIMALIST VECTOR CONTROL HUD BAR -->
+<div id="hud-controls-bar">
+  <div class="status-indicator-group">
+    <div id="status-led" class="led-dot" title="Vision & System Status"></div>
+    <div id="camera-preview-wrapper">
+      <video id="webcam-view" autoplay playsinline muted></video>
+    </div>
+  </div>
+
+  <div class="icon-controls-group">
+    <!-- VECTOR ICON: CAMERA -->
+    <button id="cam-toggle-btn" class="vector-icon-btn" title="Toggle Camera & Vision">
+      <svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 100 6 3 3 0 000-6zm-7-3h3.17L9.41 4.41A2 2 0 0110.83 4h2.34c.53 0 1.04.21 1.42.59L15.83 6H19a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm7 11a5 5 0 100-10 5 5 0 000 10z"/></svg>
+    </button>
+    <!-- VECTOR ICON: ENROLL FACE -->
+    <button id="face-enroll-btn" class="vector-icon-btn" title="Save Face as Boss" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 100 10 5 5 0 000-10zm0 14c-5.33 0-8 2.67-8 4v1h16v-1c0-1.33-2.67-4-8-4z"/></svg>
+    </button>
+    <!-- VECTOR ICON: MICROPHONE -->
+    <button id="mic-toggle-btn" class="vector-icon-btn" title="Toggle Continuous Microphone">
+      <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/></svg>
+    </button>
+  </div>
+</div>
+<canvas id="webcam-canvas" width="320" height="240" style="display:none"></canvas>
 
 <!-- SPEECH BUBBLE DIALOG -->
 <div id="speech-bubble">
-  <div id="bubble-text">Hi! I'm EMO, your AI companion. Click the 🎙️ mic to start talking!</div>
+  <div id="bubble-text">Hi! I'm EMO, your companion.</div>
 </div>
 
 <!-- ENLARGED EMO STAGE -->
 <div id="stage" title="click me to talk">
-<svg id="wisp" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="EMO the spirit">
+<svg id="wisp" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="EMO spirit">
   <defs>
     <radialGradient id="skin" cx="34%" cy="26%" r="82%">
       <stop offset="0%"   stop-color="#ffffff"/>
@@ -431,10 +493,9 @@
 </svg>
 </div>
 
-<!-- AI CHAT CONTAINER WITH MIC -->
+<!-- AI CHAT CONTAINER -->
 <div id="chat-container">
-  <input type="text" id="chat-input" placeholder="Talk or click 🎙️ to speak..." autocomplete="off" />
-  <button id="mic-btn" title="Toggle Continuous Microphone">🎙️</button>
+  <input type="text" id="chat-input" placeholder="Talk to EMO..." autocomplete="off" />
   <button id="send-btn">SEND</button>
 </div>
 
@@ -570,7 +631,7 @@
     setTimeout(function(){ svg.classList.remove('squish'); }, 480);
   });
 
-  /* ---------- LIP-SYNC TALKING MOUTH ANIMATION ---------- */
+  /* ---------- PERFECTLY SYNCED LIP-SYNC TALKING MOUTH ---------- */
   var talkInterval = null;
   var talkShapes = [
     'M94 87 q9 11 18 0 z',         // open grin
@@ -602,22 +663,26 @@
     }
   }
 
-  /* ---------- REAL NEURAL CHILD VOICE TTS WITH LIP SYNC ---------- */
+  /* ---------- REAL NEURAL CHILD VOICE TTS WITH EXACT PLAYING EVENT SYNC ---------- */
   function speakText(text, callback) {
     if (!text) { if(callback) callback(); return; }
 
     var audio = new Audio("/api/tts?text=" + encodeURIComponent(text));
 
-    audio.onplay = function() {
+    audio.addEventListener('playing', function() {
       startTalkingMouth();
-    };
+    });
 
-    audio.onended = function() {
+    audio.addEventListener('pause', function() {
+      stopTalkingMouth();
+    });
+
+    audio.addEventListener('ended', function() {
       stopTalkingMouth();
       if (callback) callback();
-    };
+    });
 
-    audio.onerror = function() {
+    audio.addEventListener('error', function() {
       stopTalkingMouth();
       if ('speechSynthesis' in window) {
         window.speechSynthesis.cancel();
@@ -631,11 +696,9 @@
       } else {
         if (callback) callback();
       }
-    };
+    });
 
-    audio.play().then(function() {
-      startTalkingMouth();
-    }).catch(function() {
+    audio.play().catch(function() {
       stopTalkingMouth();
       if (callback) callback();
     });
@@ -681,7 +744,6 @@
       var replyEmo = inferEmotion(reply);
       setEmotion(replyEmo);
 
-      // Speak reply with lip sync, then auto-resume mic listening loop!
       speakText(reply, function() {
         if (autoListenEnabled) {
           setTimeout(startListening, 300);
@@ -703,7 +765,7 @@
   var recognition = null;
   var isListening = false;
   var autoListenEnabled = false;
-  var micBtn = document.getElementById('mic-btn');
+  var micToggleBtn = document.getElementById('mic-toggle-btn');
 
   if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -714,13 +776,9 @@
 
     recognition.onstart = function() {
       isListening = true;
-      if (micBtn) {
-        micBtn.style.background = '#F2A2AC';
-        micBtn.style.color = '#000';
-        micBtn.style.borderColor = '#F2A2AC';
-      }
+      if (micToggleBtn) micToggleBtn.classList.add("active");
       setEmotion('curious');
-      document.getElementById('bubble-text').textContent = "Listening to you, Boss...";
+      document.getElementById('bubble-text').textContent = "Listening to you...";
     };
 
     recognition.onresult = function(event) {
@@ -734,20 +792,12 @@
       }
     };
 
-    recognition.onerror = function(e) {
-      stopListening();
-    };
-
-    recognition.onend = function() {
-      stopListening();
-    };
+    recognition.onerror = function(e) { stopListening(); };
+    recognition.onend = function() { stopListening(); };
   }
 
   function toggleListening() {
-    if (!recognition) {
-      alert("Microphone listening is supported in Chrome, Edge, or Android Chrome!");
-      return;
-    }
+    if (!recognition) return;
     if (isListening || autoListenEnabled) {
       autoListenEnabled = false;
       recognition.stop();
@@ -760,29 +810,153 @@
 
   function startListening() {
     if (recognition && !isListening) {
-      try {
-        recognition.start();
-      } catch (e) {}
+      try { recognition.start(); } catch (e) {}
     }
   }
 
   function stopListening() {
     isListening = false;
-    if (micBtn && !autoListenEnabled) {
-      micBtn.style.background = 'transparent';
-      micBtn.style.color = '#f2f2f2';
-      micBtn.style.borderColor = '#2a2a2a';
-    }
+    if (micToggleBtn && !autoListenEnabled) micToggleBtn.classList.remove("active");
   }
 
-  if (micBtn) {
-    micBtn.addEventListener('click', toggleListening);
-  }
+  if (micToggleBtn) micToggleBtn.addEventListener('click', toggleListening);
 
   document.getElementById('send-btn').addEventListener('click', sendChat);
   document.getElementById('chat-input').addEventListener('keypress', function(e){
     if (e.key === 'Enter') sendChat();
   });
+
+  /* ---------- BACKGROUND VISION, MULTI-PERSON BOSS & GESTURE RECOGNITION ---------- */
+  var cameraStream = null;
+  var cameraActive = false;
+  var visionInterval = null;
+  var lastSpokenVisionTime = 0;
+
+  var camToggleBtn = document.getElementById('cam-toggle-btn');
+  var faceEnrollBtn = document.getElementById('face-enroll-btn');
+  var videoElem = document.getElementById('webcam-view');
+  var canvasElem = document.getElementById('webcam-canvas');
+  var previewWrapper = document.getElementById('camera-preview-wrapper');
+  var statusLed = document.getElementById('status-led');
+
+  function snapFrameB64() {
+    if (!videoElem || !videoElem.videoWidth) return null;
+    var ctx = canvasElem.getContext('2d');
+    ctx.drawImage(videoElem, 0, 0, 320, 240);
+    return canvasElem.toDataURL('image/jpeg', 0.8);
+  }
+
+  var lastSpokenDesc = "";
+  var lastSpokenVisionTime = 0;
+
+  function runVisionAnalysisCycle() {
+    if (!cameraActive) return;
+    var frameB64 = snapFrameB64();
+    if (!frameB64) return;
+
+    statusLed.className = "led-dot scanning";
+
+    fetch("/api/vision/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: frameB64 })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (!cameraActive) return;
+      if (data.known) {
+        statusLed.className = "led-dot recognized";
+
+        var now = Date.now();
+        var msg = data.description || "";
+
+        // Speak ONLY if a gesture/event changed or after 3 minutes (180s)
+        var isNewScene = msg && (msg !== lastSpokenDesc);
+        var isCooldownExpired = (now - lastSpokenVisionTime > 180000);
+
+        if (msg && (isNewScene || isCooldownExpired)) {
+          lastSpokenVisionTime = now;
+          lastSpokenDesc = msg;
+          setEmotion('happy');
+          document.getElementById('bubble-text').textContent = msg;
+          speakText(msg);
+        }
+      } else {
+        statusLed.className = "led-dot scanning";
+      }
+    })
+    .catch(function(){
+      if (cameraActive) statusLed.className = "led-dot";
+    });
+  }
+
+  function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: "user" } })
+    .then(function(stream){
+      cameraStream = stream;
+      videoElem.srcObject = stream;
+      cameraActive = true;
+      previewWrapper.style.display = "block";
+      camToggleBtn.classList.add("active");
+      faceEnrollBtn.style.display = "flex";
+      statusLed.className = "led-dot scanning";
+
+      visionInterval = setInterval(runVisionAnalysisCycle, 4500);
+      runVisionAnalysisCycle();
+    })
+    .catch(function(err){
+      statusLed.className = "led-dot";
+    });
+  }
+
+  function stopCamera() {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(function(track){ track.stop(); });
+      cameraStream = null;
+    }
+    cameraActive = false;
+    if (visionInterval) { clearInterval(visionInterval); visionInterval = null; }
+    previewWrapper.style.display = "none";
+    camToggleBtn.classList.remove("active");
+    faceEnrollBtn.style.display = "none";
+    statusLed.className = "led-dot";
+  }
+
+  if (camToggleBtn) {
+    camToggleBtn.addEventListener('click', function(){
+      if (cameraActive) stopCamera();
+      else startCamera();
+    });
+  }
+
+  if (faceEnrollBtn) {
+    faceEnrollBtn.addEventListener('click', function(){
+      var frameB64 = snapFrameB64();
+      if (!frameB64) return;
+      document.getElementById('bubble-text').textContent = "Saving face...";
+      setEmotion('thinking');
+
+      fetch("/api/vision/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: frameB64 })
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          statusLed.className = "led-dot recognized";
+          setEmotion('excited');
+          document.getElementById('bubble-text').textContent = "I know you now, Boss!";
+          speakText("I know you now, Boss!");
+        }
+      });
+    });
+  }
+
+  // Auto-start camera & mic seamlessly if permitted
+  setTimeout(function(){
+    startCamera();
+  }, 1000);
 
   window.wisp = {
     setEmotion: setEmotion,

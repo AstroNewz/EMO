@@ -1,0 +1,22 @@
+[
+    {
+        "merged": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-debug-36:\\layout_activity_setup.xml.flat",
+        "source": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-main-38:\\layout\\activity_setup.xml"
+    },
+    {
+        "merged": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-debug-36:\\xml_accessibility_config.xml.flat",
+        "source": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-main-38:\\xml\\accessibility_config.xml"
+    },
+    {
+        "merged": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-debug-36:\\layout_overlay_termux_popup.xml.flat",
+        "source": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-main-38:\\layout\\overlay_termux_popup.xml"
+    },
+    {
+        "merged": "com.emo.launcher.app-debug-36:/layout_activity_launcher.xml.flat",
+        "source": "com.emo.launcher.app-main-38:/layout/activity_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-debug-36:\\layout_activity_launcher.xml.flat",
+        "source": "C:\\Users\\ISHAN SHUKLA\\.gradle\\daemon\\9.0.0\\com.emo.launcher.app-main-38:\\layout\\activity_launcher.xml"
+    }
+]

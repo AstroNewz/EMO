@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.emo.launcher.app-mergeDebugResources-34:/values-small-v4/values-small-v4.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\ISHAN SHUKLA\\.gradle\\caches\\9.0.0\\transforms\\212e7e4821260bbedfe76100c49b42ee\\transformed\\material-1.12.0\\res\\values-small-v4\\values-small-v4.xml",
+                    "from": {
+                        "startLines": "2,3,4,5",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,128,198,270",
+                        "endColumns": "72,69,71,69",
+                        "endOffsets": "123,193,265,335"
+                    }
+                }
+            ]
+        }
+    ]
+}

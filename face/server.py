@@ -461,6 +461,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json(brain_info)
             return
 
+        # Face Recognition Status API
+        if path == "/api/vision/status":
+            try:
+                from brain import face_lock
+                self._send_json({"ok": True, "enrolled": face_lock.is_enrolled()})
+            except Exception as e:
+                self._send_json({"ok": False, "enrolled": False})
+            return
+
         # ---- Original endpoints (preserved for backward compat) ----
         if path == "/state":
             tele = get_telemetry()
@@ -584,7 +593,59 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "reply": "I'm right here with you, Boss!"})
             return
 
-        if path != "/state":
+        # Face Recognition Status API
+        if path == "/api/vision/status":
+            try:
+                from brain import face_lock
+                self._send_json({"ok": True, "enrolled": face_lock.is_enrolled()})
+            except Exception as e:
+                self._send_json({"ok": False, "enrolled": False})
+            return
+
+        # Face Lock Enrollment API (Snapshot webcam frame as Boss)
+        if path == "/api/vision/enroll":
+            body = self._read_json()
+            b64_image = (body or {}).get("image", "")
+            if not b64_image:
+                self._send_json({"ok": False, "error": "missing image data"}, code=400)
+                return
+            try:
+                from brain import face_lock
+                ok, msg = face_lock.enroll_image_b64(b64_image, label="Boss")
+                self._send_json({"ok": ok, "message": msg})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
+        # Face Lock Recognition API (Identify face in camera frame)
+        if path == "/api/vision/recognize":
+            body = self._read_json()
+            b64_image = (body or {}).get("image", "")
+            if not b64_image:
+                self._send_json({"ok": False, "error": "missing image data"}, code=400)
+                return
+            try:
+                from brain import face_lock
+                res = face_lock.recognize_image_b64(b64_image)
+                self._send_json({"ok": True, **res})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
+        # Full Vision Analysis API (Boss Recognition, Gestures & Environment)
+        if path == "/api/vision/analyze":
+            body = self._read_json()
+            b64_image = (body or {}).get("image", "")
+            if not b64_image:
+                self._send_json({"ok": False, "error": "missing image data"}, code=400)
+                return
+            try:
+                from brain import face_lock
+                res = face_lock.analyze_frame_b64(b64_image)
+                self._send_json({"ok": True, **res})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
             self.send_error(404, "Not found")
             return
 
