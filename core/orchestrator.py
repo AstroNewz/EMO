@@ -971,12 +971,28 @@ def main():
                 context_addons = ""
                 try:
                     from brain import web_search, google_workspace
+
+                    # ── Calendar scheduling — handle directly, no LLM needed ──
+                    if google_workspace.is_schedule_request(text):
+                        print(f"[orchestrator] Scheduling calendar event from: '{text}'")
+                        face_client.set_state("thinking")
+                        result = google_workspace.parse_and_create_event(text)
+                        say(result, mouth_cfg, chime=True)
+                        memory.append({"role": "user", "content": text})
+                        memory.append({"role": "assistant", "content": result})
+                        ltm.add_turn(session, "user", text)
+                        ltm.add_turn(session, "assistant", result)
+                        save_memory(memory)
+                        if not follow_up:
+                            break
+                        continue
+
                     if web_search.is_search_needed(text):
                         print(f"[orchestrator] Fetching live web search for: '{text}'")
                         search_res = web_search.search_web(text)
                         if search_res:
                             context_addons += f"\n\n[LIVE SEARCH RESULTS]:\n{search_res}"
-                            
+
                     if google_workspace.is_workspace_query(text):
                         print(f"[orchestrator] Fetching Google Workspace data for: '{text}'")
                         low_q = text.lower()

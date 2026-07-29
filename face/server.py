@@ -572,9 +572,16 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 from brain import api_llm, memory, web_search, google_workspace
 
+                # ── Calendar scheduling — handle directly, no LLM needed ──
+                if google_workspace.is_schedule_request(user_msg):
+                    print(f"[chat.api] Scheduling calendar event from: '{user_msg}'")
+                    result = google_workspace.parse_and_create_event(user_msg)
+                    memory.add_exchange(user_msg, result)
+                    self._send_json({"ok": True, "reply": result})
+                    return
+
+
                 context_addons = ""
-                
-                # Real-Time Google & Web Search Trigger
                 if web_search.is_search_needed(user_msg):
                     print(f"[chat.api] Fetching live web search for: '{user_msg}'")
                     search_res = web_search.search_web(user_msg)
