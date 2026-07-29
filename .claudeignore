@@ -1,0 +1,10 @@
+build/
+node_modules/
+**/__pycache__/
+*.gguf
+*.bin
+# MediaPipe browser assets — large binaries fetched on-device by
+# face/static/vendor/fetch_mediapipe.sh; don't ship them in the code sync.
+face/static/vendor/mediapipe/
+*.wasm
+*.task

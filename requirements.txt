@@ -1,0 +1,28 @@
+# EMO Python dependencies (install with: pip install -r requirements.txt)
+# Grouped by module. Some slices install fine independently — you do NOT
+# need every line before testing the face. Comments note the phase.
+
+# --- Core / config (needed everywhere) ---
+pyyaml>=6.0
+
+# --- FACE (Slice 1) — pure-python, installs cleanly on Termux/ARM ---
+fastapi>=0.110
+uvicorn[standard]>=0.29
+websockets>=12.0
+
+# --- BRAIN, local mode (Slice 6) ---
+# llama-cpp-python builds from source on Termux; can take a while. See INSTALL.md.
+llama-cpp-python>=0.2.79
+
+# --- BRAIN, api mode (optional) ---
+anthropic>=0.40
+
+# --- EARS: wake word (Slice 4) ---
+# pvporcupine may lack a Termux ARM wheel — INSTALL.md has a fallback.
+pvporcupine>=3.0
+# sounddevice needs PortAudio (pkg install) — used to feed audio frames to Porcupine.
+sounddevice>=0.4.6
+numpy>=1.24
+
+# NOTE: whisper.cpp (STT) and piper (TTS) are NOT pip packages — they are
+# compiled/downloaded binaries. See INSTALL.md.

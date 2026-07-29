@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EMO</string>
+    <string name="watchdog_channel_name">EMO System</string>
+    <string name="watchdog_channel_desc">EMO background monitoring</string>
+    <string name="watchdog_notification_title">EMO is active</string>
+    <string name="watchdog_notification_text">Monitoring EMO AI backend</string>
+    <string name="accessibility_service_description">EMO uses accessibility to provide a seamless full-screen experience. This allows EMO to intercept the Back and Recents buttons so your phone stays in terminal mode.</string>
+</resources>

@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EMO — AI Companion</title>
+<style>
+  :root{
+    --bg:#000;
+    --ink:#141414;
+    --cream:#F0DCA0;
+    --pink:#F2A2AC;
+    --fg:#f2f2f2;
+    --dim:#6d6d6d;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-weight:300;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding:20px 16px;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  header{text-align:center;margin-bottom:4px}
+  header h1{
+    font-size:clamp(22px,3.8vw,34px);
+    font-weight:300;
+    letter-spacing:.62em;
+    text-indent:.62em;
+  }
+  header p{
+    margin-top:6px;
+    font-size:10px;
+    letter-spacing:.42em;
+    text-indent:.42em;
+    color:var(--dim);
+  }
+
+  /* ---------- SPEECH BUBBLE DIALOG ---------- */
+  #speech-bubble {
+    width: min(520px, 94vw);
+    background: rgba(20, 20, 20, 0.88);
+    border: 1px solid #282828;
+    border-radius: 16px;
+    padding: 14px 20px;
+    text-align: center;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.85);
+    backdrop-filter: blur(12px);
+    transition: all 0.3s ease;
+  }
+  #bubble-text {
+    font-size: 14px;
+    color: var(--fg);
+    line-height: 1.5;
+    letter-spacing: .02em;
+  }
+
+  /* ---------- ENLARGED EMO STAGE ---------- */
+  #stage{
+    width: min(65vh, 480px);
+    height: min(65vh, 480px);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.2s ease;
+  }
+  #stage svg{width:100%;height:100%;overflow:visible;display:block}
+
+  /* ---------- character base ---------- */
+  .outline{
+    fill:#fff;
+    stroke:var(--ink);
+    stroke-width:2.1;
+    stroke-linejoin:round;
+    stroke-linecap:round;
+  }
+  .limb{
+    fill:none;
+    stroke:var(--ink);
+    stroke-width:1.7;
+    stroke-linecap:round;
+  }
+  .spot{fill:#171717}
+  .mouth{
+    fill:none;
+    stroke:var(--ink);
+    stroke-width:2;
+    stroke-linecap:round;
+    transition:d .22s ease;
+  }
+  .blush{fill:var(--pink);opacity:0}
+  #blush{transition:opacity .3s ease}
+
+  /* ---------- transform layers ---------- */
+  #look, #float, #headTilt, #breathe, #bodyMove{
+    transform-box:view-box;
+  }
+  #float{transform-origin:100px 150px;animation:float 5.2s ease-in-out infinite}
+  #breathe{transform-origin:100px 112px;animation:breathe 3.6s ease-in-out infinite}
+  #headTilt{transform-origin:100px 112px;transition:transform .5s cubic-bezier(.34,1.4,.5,1)}
+  #bodyMove{transform-origin:100px 175px;transition:transform .5s cubic-bezier(.34,1.4,.5,1)}
+
+  @keyframes float{
+    0%,100%{transform:translateY(0)}
+    50%{transform:translateY(-6px)}
+  }
+  @keyframes breathe{
+    0%,100%{transform:scale(1,1)}
+    50%{transform:scale(1.022,.985)}
+  }
+
+  /* eyes */
+  .eye,.eye .open{transform-box:view-box}
+  .eye{transition:transform .3s cubic-bezier(.34,1.3,.5,1)}
+  .eye .open{transition:transform .09s ease}
+  .eye .lid{fill:none;stroke:var(--ink);stroke-width:2.6;stroke-linecap:round;opacity:0;transition:opacity .18s ease}
+  .eye .cross{fill:none;stroke:var(--ink);stroke-width:2.6;stroke-linecap:round;opacity:0;transition:opacity .18s ease}
+  #eyeL{transform-origin:82px 48px}
+  #eyeR{transform-origin:127px 70px}
+  #eyeL .open{transform-origin:82px 48px}
+  #eyeR .open{transform-origin:127px 70px}
+
+  .closed .open{opacity:0}
+  .closed .lid{opacity:1}
+  .xeyes .open{opacity:0}
+  .xeyes .cross{opacity:1}
+
+  /* ---------- fx ---------- */
+  .fx{opacity:0;transition:opacity .28s ease;pointer-events:none}
+  .fx.on{opacity:1}
+  .cream{fill:var(--cream)}
+  .creamStroke{fill:none;stroke:var(--cream);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .pinkFill{fill:var(--pink)}
+  .glyph{
+    fill:#fff;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-weight:300;text-anchor:middle;
+  }
+
+  .on .tw{animation:tw 1.9s ease-in-out infinite}
+  .on .tw2{animation:tw 1.9s ease-in-out .55s infinite}
+  .on .tw3{animation:tw 1.9s ease-in-out 1.1s infinite}
+  @keyframes tw{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1.08)}}
+  .tw,.tw2,.tw3{transform-box:fill-box;transform-origin:center}
+
+  .on .pop{animation:pop 1.4s ease-in-out infinite}
+  @keyframes pop{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  .pop{transform-box:fill-box}
+
+  .on .dot1{animation:dots 1.5s ease-in-out infinite}
+  .on .dot2{animation:dots 1.5s ease-in-out .22s infinite}
+  .on .dot3{animation:dots 1.5s ease-in-out .44s infinite}
+  @keyframes dots{0%,100%{opacity:.18}45%{opacity:1}}
+
+  .on .z1{animation:rise 3s ease-out infinite}
+  .on .z2{animation:rise 3s ease-out 1s infinite}
+  .on .z3{animation:rise 3s ease-out 2s infinite}
+  @keyframes rise{
+    0%{opacity:0;transform:translate(0,4px) scale(.6)}
+    25%{opacity:1}
+    100%{opacity:0;transform:translate(9px,-22px) scale(1.1)}
+  }
+  .z1,.z2,.z3{transform-box:fill-box}
+
+  .on .heart1{animation:rise2 2.6s ease-out infinite}
+  .on .heart2{animation:rise2 2.6s ease-out 1.3s infinite}
+  @keyframes rise2{
+    0%{opacity:0;transform:translateY(4px) scale(.5)}
+    30%{opacity:1;transform:translateY(-2px) scale(1)}
+    100%{opacity:0;transform:translateY(-16px) scale(.8)}
+  }
+  .heart1,.heart2{transform-box:fill-box}
+
+  .on .jitter{animation:jitter .35s steps(2,end) infinite}
+  @keyframes jitter{0%{transform:translate(0,0)}100%{transform:translate(1.2px,-1.2px)}}
+  .jitter{transform-box:fill-box}
+
+  .on .spin{animation:spin 5s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spin{transform-box:fill-box;transform-origin:center}
+
+  /* body motion presets */
+  .shake #bodyMove{animation:shake .28s ease-in-out infinite}
+  @keyframes shake{0%,100%{transform:translateX(-1.6px)}50%{transform:translateX(1.6px)}}
+  .bounce #float{animation:bounceA .62s cubic-bezier(.3,1.5,.5,1) infinite}
+  @keyframes bounceA{0%,100%{transform:translateY(0)}40%{transform:translateY(-11px)}}
+  .droop #float{animation:droop 4.6s ease-in-out infinite}
+  @keyframes droop{0%,100%{transform:translateY(3px)}50%{transform:translateY(5px)}}
+  .slow #breathe{animation-duration:6.2s}
+
+  /* click squash */
+  .squish #breathe{animation:squish .45s cubic-bezier(.3,1.4,.5,1)}
+  @keyframes squish{
+    0%{transform:scale(1,1)}
+    30%{transform:scale(1.1,.88)}
+    60%{transform:scale(.96,1.06)}
+    100%{transform:scale(1,1)}
+  }
+
+  /* ---------- CHAT INPUT CONTAINER ---------- */
+  #chat-container {
+    display: flex;
+    gap: 10px;
+    width: min(520px, 94vw);
+    margin-top: 4px;
+  }
+  #chat-input {
+    flex: 1;
+    background: #121212;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    color: #f2f2f2;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  #chat-input:focus { border-color: var(--cream); }
+  #send-btn {
+    background: var(--cream);
+    border: none;
+    border-radius: 10px;
+    padding: 0 22px;
+    color: #000;
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: .12em;
+    cursor: pointer;
+    transition: transform 0.15s, background-color 0.2s;
+  }
+  #send-btn:active { transform: scale(0.94); }
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>EMO</h1>
+  <p>your companion</p>
+</header>
+
+<!-- SPEECH BUBBLE DIALOG -->
+<div id="speech-bubble">
+  <div id="bubble-text">Hi! I'm EMO, your AI companion. Talk to me!</div>
+</div>
+
+<!-- ENLARGED EMO STAGE -->
+<div id="stage" title="click me">
+<svg id="wisp" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="EMO the spirit">
+  <defs>
+    <radialGradient id="skin" cx="34%" cy="26%" r="82%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="58%"  stop-color="#fbfbfc"/>
+      <stop offset="100%" stop-color="#dfdfe4"/>
+    </radialGradient>
+    <radialGradient id="skinBody" cx="34%" cy="18%" r="90%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="70%"  stop-color="#fcfcfd"/>
+      <stop offset="100%" stop-color="#e6e6ea"/>
+    </radialGradient>
+    <clipPath id="headClip">
+      <path d="M100 21 C131 20.5 152.5 40 153 66.5 C153.5 92.5 131 113.5 100.5 113.5 C70 113.5 48 94.5 47.5 68 C47 41.5 69 21.5 100 21 Z"/>
+    </clipPath>
+  </defs>
+
+  <g id="look">
+   <g id="float">
+    <g id="bodyMove">
+
+      <!-- ============ BODY ============ -->
+      <g id="body">
+        <path class="outline" fill="url(#skinBody)" d="
+          M85.5 102
+          C81 115 78.5 140 78 165
+          q3.2 5 6.5 0 q3.2 5 6.5 0 q3.2 5 6.5 0
+          L98 141
+          C98 137 102.6 137 102.6 141
+          L103.5 165
+          q3.2 5 6.5 0 q3.2 5 6.5 0 q3.2 5 6.5 0
+          C122.5 140 119.5 115 115 102 Z"/>
+        <path class="limb" d="M88 105 C83 116 81.5 132 82.5 150"/>
+        <path class="limb" d="M112.5 105 C117.5 116 119 132 118 150"/>
+      </g>
+
+      <g id="armThink" class="fx">
+        <path class="outline" fill="url(#skinBody)" d="
+          M90 116
+          C85 126 86 138 90.5 143
+          C94 147 99.5 146 101 141
+          C102.5 135 99.5 125 95 116 Z"/>
+      </g>
+
+      <!-- ============ HEAD ============ -->
+      <g id="headTilt">
+       <g id="breathe">
+        <path class="outline" fill="url(#skin)"
+          d="M100 21 C131 20.5 152.5 40 153 66.5 C153.5 92.5 131 113.5 100.5 113.5 C70 113.5 48 94.5 47.5 68 C47 41.5 69 21.5 100 21 Z"/>
+
+        <g clip-path="url(#headClip)">
+          <ellipse cx="136" cy="106" rx="48" ry="32" fill="#d9d9df" opacity=".5"/>
+          <ellipse cx="76" cy="40" rx="32" ry="21" fill="#ffffff" opacity=".9"/>
+        </g>
+
+        <g id="blush">
+          <ellipse class="blush" cx="76" cy="95" rx="9.5" ry="4.8"/>
+          <ellipse class="blush" cx="128" cy="95" rx="9.5" ry="4.8"/>
+        </g>
+
+        <!-- eyes -->
+        <g id="eyeL" class="eye">
+          <ellipse class="spot open" cx="82" cy="48" rx="11" ry="12.4"/>
+          <path class="lid" d="M71 46 q11 10 22 0"/>
+          <path class="cross" d="M75 41 l14 14 M89 41 l-14 14"/>
+        </g>
+        <g id="eyeR" class="eye">
+          <ellipse class="spot open" cx="127" cy="70" rx="13" ry="14.2"/>
+          <path class="lid" d="M114 68 q13 11 26 0"/>
+          <path class="cross" d="M119 63 l16 15 M135 63 l-16 15"/>
+        </g>
+
+        <ellipse class="spot" cx="72" cy="82" rx="5.2" ry="5.8"/>
+        <path id="mouth" class="mouth" d="M97 90 q5.5 5.5 11 0"/>
+       </g>
+      </g>
+    </g>
+
+    <!-- FX LAYERS -->
+    <g id="fxLayer">
+      <g id="fxSparkle" class="fx">
+        <g transform="translate(30,44) scale(1.2)"><path class="cream tw" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
+        <g transform="translate(172,60) scale(1)"><path class="cream tw2" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
+        <g transform="translate(24,80) scale(.7)"><path class="cream tw3" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
+      </g>
+      <g id="fxExcite" class="fx">
+        <g class="pop">
+          <path class="creamStroke" d="M158 34 l14 -9"/>
+          <path class="creamStroke" d="M162 46 l16 -1"/>
+          <path class="creamStroke" d="M156 24 l7 -13"/>
+        </g>
+      </g>
+      <g id="fxQuestion" class="fx">
+        <text class="glyph pop" x="167" y="42" font-size="34" fill="var(--cream)">?</text>
+      </g>
+      <g id="fxDots" class="fx">
+        <circle class="dot1" cx="158" cy="26" r="3.1" fill="#fff"/>
+        <circle class="dot2" cx="170" cy="24" r="3.1" fill="#fff"/>
+        <circle class="dot3" cx="182" cy="22" r="3.1" fill="#fff"/>
+      </g>
+      <g id="fxBang" class="fx">
+        <g class="pop">
+          <text class="glyph" x="171" y="30" font-size="34" fill="var(--cream)">!</text>
+          <path class="creamStroke" d="M40 40 l-11 -6"/>
+          <path class="creamStroke" d="M38 52 l-13 1"/>
+          <path class="creamStroke" d="M46 30 l-6 -11"/>
+          <path class="creamStroke" d="M150 88 l12 5"/>
+          <path class="creamStroke" d="M154 78 l13 -1"/>
+        </g>
+      </g>
+      <g id="fxWorry" class="fx">
+        <path class="creamStroke jitter" d="M40 36 q5 -5 0 -10 q-5 -5 0 -10"/>
+        <path class="creamStroke jitter" d="M160 46 q5 -5 0 -10 q-5 -5 0 -10"/>
+      </g>
+      <g id="fxAngry" class="fx">
+        <g class="jitter">
+          <path class="creamStroke" d="M150 24 l0 12"/>
+          <path class="creamStroke" d="M144 30 l12 0"/>
+          <path class="creamStroke" d="M164 36 l0 10"/>
+          <path class="creamStroke" d="M159 41 l10 0"/>
+        </g>
+      </g>
+      <g id="fxSwirl" class="fx">
+        <g transform="translate(164,26)"><path class="creamStroke spin"
+          d="M0 0 a4 4 0 1 1 4 -4 a8 8 0 1 1 -9 8 a12 12 0 1 1 14 -12"/></g>
+      </g>
+      <g id="fxZzz" class="fx">
+        <text class="glyph z1" x="146" y="34" font-size="15" fill="#fff">z</text>
+        <text class="glyph z2" x="154" y="24" font-size="19" fill="#fff">z</text>
+        <text class="glyph z3" x="164" y="14" font-size="23" fill="#fff">z</text>
+      </g>
+      <g id="fxHeart" class="fx">
+        <g transform="translate(34,46) scale(1.6)"><path class="pinkFill heart1"
+          d="M0 5 C-6 -1 -5 -7 -1.8 -7 C-0.6 -7 0 -6.2 0 -5.4 C0 -6.2 0.6 -7 1.8 -7 C5 -7 6 -1 0 5 Z"/></g>
+        <g transform="translate(170,66) scale(1.2)"><path class="pinkFill heart2"
+          d="M0 5 C-6 -1 -5 -7 -1.8 -7 C-0.6 -7 0 -6.2 0 -5.4 C0 -6.2 0.6 -7 1.8 -7 C5 -7 6 -1 0 5 Z"/></g>
+      </g>
+      <g id="fxCalm" class="fx">
+        <g transform="translate(31,88) scale(.62)"><path class="cream tw" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
+        <circle class="cream tw2" cx="172" cy="52" r="2.4"/>
+        <circle class="cream tw3" cx="178" cy="78" r="1.8"/>
+        <circle class="cream tw2" cx="28" cy="60" r="1.8"/>
+      </g>
+      <g id="fxSigh" class="fx">
+        <g class="pop" opacity=".75">
+          <circle cx="44" cy="96" r="3.4" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+          <circle cx="37" cy="101" r="2.2" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
+        </g>
+      </g>
+    </g>
+   </g>
+  </g>
+</svg>
+</div>
+
+<!-- AI CHAT CONTAINER -->
+<div id="chat-container">
+  <input type="text" id="chat-input" placeholder="Talk to EMO..." autocomplete="off" />
+  <button id="send-btn">SEND</button>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var svg      = document.getElementById('wisp');
+  var stage    = document.getElementById('stage');
+  var look     = document.getElementById('look');
+  var headTilt = document.getElementById('headTilt');
+  var eyeL     = document.getElementById('eyeL');
+  var eyeR     = document.getElementById('eyeR');
+  var openL    = eyeL.querySelector('.open');
+  var openR    = eyeR.querySelector('.open');
+  var mouth    = document.getElementById('mouth');
+  var blush    = document.getElementById('blush');
+
+  var M = {
+    smile:  'M95 89 q7.5 7 15 0',
+    small:  'M97 90 q5.5 5.5 11 0',
+    tiny:   'M99 91 q4 4 8 0',
+    flat:   'M97 92 h12',
+    frown:  'M95 94 q7.5 -7 15 0',
+    wobble: 'M94 92 q3.7 -4.6 7.4 0 q3.7 4.6 7.4 0',
+    o:      'M102 85 a4.8 5.8 0 1 0 .1 0',
+    grin:   'M94 87 q9 11 18 0 z',
+    none:   'M102 91 h0'
+  };
+
+  var EMO = {
+    happy:      {mouth:'small',  eyes:'open',   tilt:-4, fx:'fxSparkle', eyeT:['','']                                   },
+    excited:    {mouth:'grin',   eyes:'open',   tilt:-7, fx:'fxExcite',  eyeT:['scale(1.05)','scale(1.05)'], body:'bounce'},
+    curious:    {mouth:'tiny',   eyes:'open',   tilt:8,  fx:'fxQuestion',eyeT:['','']                                   },
+    thinking:   {mouth:'flat',   eyes:'open',   tilt:-9, fx:'fxDots',    eyeT:['scaleY(.62)','scaleY(.75)'], arm:true    },
+    surprised:  {mouth:'o',      eyes:'open',   tilt:0,  fx:'fxBang',    eyeT:['scale(1.16)','scale(1.16)']              },
+
+    sad:        {mouth:'frown',  eyes:'open',   tilt:6,  fx:'',          eyeT:['rotate(-16deg) scale(.78)','rotate(-16deg) scale(.8)'], body:'droop'},
+    tired:      {mouth:'frown',  eyes:'closed', tilt:5,  fx:'fxSigh',    eyeT:['',''],                        body:'droop slow'},
+    sleepy:     {mouth:'frown',  eyes:'closed', tilt:-6, fx:'fxZzz',     eyeT:['',''],                        body:'slow'  },
+    worried:    {mouth:'wobble', eyes:'open',   tilt:4,  fx:'fxWorry',   eyeT:['scaleY(.7)','scaleY(.72)'],   body:'shake' },
+    lonely:     {mouth:'frown',  eyes:'open',   tilt:10, fx:'',          eyeT:['scale(.85)','scale(.86)'],    body:'droop' },
+
+    angry:      {mouth:'wobble', eyes:'xeyes',  tilt:-5, fx:'fxAngry',   eyeT:['',''],                        body:'shake' },
+    frustrated: {mouth:'flat',   eyes:'open',   tilt:-3, fx:'fxSwirl',   eyeT:['rotate(14deg) scaleY(.6)','rotate(-14deg) scaleY(.62)']},
+    shy:        {mouth:'tiny',   eyes:'open',   tilt:9,  fx:'',          eyeT:['scale(.9)','scale(.9)'],      blush:true   },
+    love:       {mouth:'smile',  eyes:'open',   tilt:-5, fx:'fxHeart',   eyeT:['',''],                        blush:true   },
+    relaxed:    {mouth:'small',  eyes:'closed', tilt:-3, fx:'fxCalm',    eyeT:['',''],                        body:'slow'  }
+  };
+
+  var ORDER = ['happy','excited','curious','thinking','surprised',
+               'sad','tired','sleepy','worried','lonely',
+               'angry','frustrated','shy','love','relaxed'];
+
+  var BODY_CLASSES = ['bounce','droop','shake','slow'];
+  var current = 'happy';
+
+  function setEmotion(name){
+    var e = EMO[name];
+    if(!e) return;
+    current = name;
+
+    mouth.setAttribute('d', M[e.mouth] || M.small);
+
+    eyeL.classList.remove('closed','xeyes');
+    eyeR.classList.remove('closed','xeyes');
+    if(e.eyes === 'closed'){ eyeL.classList.add('closed'); eyeR.classList.add('closed'); }
+    if(e.eyes === 'xeyes'){  eyeL.classList.add('xeyes');  eyeR.classList.add('xeyes');  }
+
+    eyeL.style.transform = (e.eyeT && e.eyeT[0]) || '';
+    eyeR.style.transform = (e.eyeT && e.eyeT[1]) || '';
+
+    blush.style.opacity = e.blush ? 1 : 0;
+
+    document.querySelectorAll('.fx').forEach(function(n){ n.classList.remove('on'); });
+    if(e.fx){ var t = document.getElementById(e.fx); if(t) t.classList.add('on'); }
+    if(e.arm) document.getElementById('armThink').classList.add('on');
+
+    BODY_CLASSES.forEach(function(c){ svg.classList.remove(c); });
+    if(e.body) e.body.split(' ').forEach(function(c){ svg.classList.add(c); });
+
+    baseTilt = e.tilt || 0;
+    applyTilt();
+  }
+
+  var tx=0, ty=0, cx=0, cy=0, baseTilt=0;
+
+  window.addEventListener('pointermove', function(ev){
+    var r = stage.getBoundingClientRect();
+    var hx = r.left + r.width/2;
+    var hy = r.top  + r.height*0.38;
+    tx = Math.max(-1, Math.min(1, (ev.clientX - hx) / (r.width*0.95)));
+    ty = Math.max(-1, Math.min(1, (ev.clientY - hy) / (r.height*0.95)));
+  }, {passive:true});
+
+  function applyTilt(){
+    headTilt.style.transform = 'rotate(' + (baseTilt + cx*5) + 'deg)';
+  }
+
+  (function frame(){
+    cx += (tx - cx) * 0.08;
+    cy += (ty - cy) * 0.08;
+
+    look.setAttribute('transform',
+      'translate(' + (cx*5).toFixed(2) + ',' + (cy*3.4).toFixed(2) + ')');
+
+    var ex = (cx*3.2).toFixed(2), ey = (cy*2.6).toFixed(2);
+    openL.setAttribute('transform','translate('+ex+','+ey+')');
+    openR.setAttribute('transform','translate('+ex+','+ey+')');
+
+    applyTilt();
+    requestAnimationFrame(frame);
+  })();
+
+  function blink(){
+    if(!eyeL.classList.contains('closed') && !eyeL.classList.contains('xeyes')){
+      openL.style.transform = 'scaleY(.06)';
+      openR.style.transform = 'scaleY(.06)';
+      setTimeout(function(){
+        openL.style.transform = '';
+        openR.style.transform = '';
+      }, 110);
+    }
+    setTimeout(blink, 2200 + Math.random()*4200);
+  }
+  setTimeout(blink, 1800);
+
+  stage.addEventListener('click', function(){
+    svg.classList.remove('squish');
+    void svg.offsetWidth;
+    svg.classList.add('squish');
+    setEmotion(Math.random() < 0.45 ? 'love' : (Math.random() < 0.5 ? 'excited' : 'happy'));
+    setTimeout(function(){ svg.classList.remove('squish'); }, 480);
+  });
+
+  /* ---------- SLOWER NATURAL SPEECH ---------- */
+  function speakText(text) {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      var utt = new SpeechSynthesisUtterance(text);
+      utt.rate = 0.88; // Slower, clearer speech rate
+      utt.pitch = 1.05;
+      window.speechSynthesis.speak(utt);
+    }
+  }
+
+  function inferEmotion(text) {
+    if (!text) return 'happy';
+    var low = text.toLowerCase();
+    if (/happy|great|awesome|yay|wonderful|good|love|like|cool|nice|win|passed/.test(low)) return 'happy';
+    if (/excited|omg|wow|hurray|fantastic/.test(low)) return 'excited';
+    if (/why|what|how|who|where|huh|confused|strange|odd|\?/.test(low)) return 'curious';
+    if (/thinking|calculate|math|think|reason/.test(low)) return 'thinking';
+    if (/surprise|shock|unbelievable|really|no way/.test(low)) return 'surprised';
+    if (/sad|sorry|bad|disappointed|unfortunately|cry|hurt/.test(low)) return 'sad';
+    if (/tired|exhausted|sleep|sigh/.test(low)) return 'tired';
+    if (/stop|no|angry|shut up|annoyed|stupid|hate/.test(low)) return 'angry';
+    if (/love|heart|sweet|cute/.test(low)) return 'love';
+    if (/shy|blush/.test(low)) return 'shy';
+    if (/chill|relax/.test(low)) return 'relaxed';
+    return 'thinking';
+  }
+
+  function sendChat() {
+    var input = document.getElementById('chat-input');
+    var bubbleText = document.getElementById('bubble-text');
+    var val = input.value.trim();
+    if (!val) return;
+
+    var emotion = inferEmotion(val);
+    setEmotion(emotion);
+    bubbleText.textContent = "You: " + val + "...";
+    input.value = "";
+
+    fetch("/api/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: val })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var reply = data.reply || "Got it!";
+      bubbleText.textContent = reply;
+      var replyEmo = inferEmotion(reply);
+      setEmotion(replyEmo);
+      speakText(reply);
+    })
+    .catch(function(){
+      bubbleText.textContent = "I'm right here with you!";
+      setEmotion('love');
+      speakText("I'm right here with you!");
+    });
+  }
+
+  document.getElementById('send-btn').addEventListener('click', sendChat);
+  document.getElementById('chat-input').addEventListener('keypress', function(e){
+    if (e.key === 'Enter') sendChat();
+  });
+
+  window.wisp = {
+    setEmotion: setEmotion,
+    emotions: ORDER.slice(),
+    get current(){ return current; },
+    say: function(name, ms){
+      setEmotion(name);
+      clearTimeout(this._t);
+      this._t = setTimeout(function(){ setEmotion('happy'); }, ms || 3000);
+    }
+  };
+
+  setEmotion('happy');
+})();
+</script>
+</body>
+</html>

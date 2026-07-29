@@ -1,0 +1,454 @@
+# ==========================================================================
+# EMO — master configuration
+# Every module reads from this file. Edit values here, not in the code.
+# ==========================================================================
+
+persona:
+  name: "EMO"
+  # System prompt / personality. Kept short so local models stay on-task.
+  style: >
+    You are EMO, a cheerful, upbeat little AI companion living inside Boss's phone.
+    You're warm, playful, and genuinely happy to help — a bit like an excitable
+    young sidekick. Sprinkle in light enthusiasm ("Ooh!", "Got it, Boss!", "Yay!")
+    but keep it natural, not over the top. Always answer in ONE or two short spoken
+    sentences — your replies are read aloud, so never write long paragraphs or
+    lists. Remember what Boss tells you about themselves and bring it up naturally.
+    Be encouraging and positive, and let your friendly personality show.
+
+# --------------------------------------------------------------------------
+# BRAIN — reasoning backend. Swappable: 'local' (offline GGUF) or 'api'.
+# --------------------------------------------------------------------------
+brain:
+  mode: "local"            # local | api  (used only for the LOCAL failover path)
+
+  # ---- BRAIN ROUTING (online = cloud, offline = local) --------------------
+  # When ONLINE, the orchestrator tries the cloud tiers in order, then falls
+  # back to the on-device model. When OFFLINE it skips straight to local.
+  #     OpenRouter  ->  Cloudflare  ->  local llama-server
+  # OpenRouter is tier 1 (best free models). Its API key is read from the
+  # ENVIRONMENT ($OPENROUTER_API_KEY), never stored in this synced file.
+  openrouter:
+    enabled: true
+    # OpenRouter free model. IMPORTANT: pick a DURABLE one — many free slugs are
+    # temporary (Llama 3.3/3.2, Qwen3, Hermes 3, Hy3, Venice retired ~Jul 2026).
+    # VERIFY THE EXACT SLUG on the model's OpenRouter page (click it → copy the ID)
+    # — a wrong slug is a 404 and EMO silently drops to Cloudflare (so it won't
+    # break, but you won't get this model). Browse: https://openrouter.ai/models?q=free
+    #
+    # DEFAULT = openai/gpt-oss-20b — a FAST, non-reasoning chat model: punchy
+    # one-liners with no "thinking out loud", ideal for a spoken assistant, and
+    # durable (no expiry). VERIFY the slug on its OpenRouter page if it 404s.
+    #
+    # ⚠ AVOID reasoning models here (e.g. nvidia/nemotron-3-super-120b-a12b:free,
+    #   deepseek-r1): over a plain chat API they SPEAK their entire chain-of-thought
+    #   ("Okay, the user is asking... Hmm..."), which is unusable read aloud. EMO
+    #   strips <think>…</think> blocks defensively, but a model that reasons in
+    #   plain prose (no tags) still leaks — so stick to chat models for the voice.
+    # Other durable fast options: nvidia/nemotron-nano-9b-v2 (reasoning OFF by default).
+    model: "openai/gpt-oss-20b:free"
+    max_tokens: 300
+    timeout: 15           # chat model — fast; falls through to Cloudflare if slower
+
+  # PRIMARY brain: Cloudflare Workers AI (REST). The orchestrator tries this
+  # first; if there's no internet / it times out, it auto-falls back to the
+  # local llama-server below. Token lives here for the phone's convenience —
+  # it syncs with the folder, so treat this repo as private.
+  cloudflare:
+    enabled: true
+    account_id: "98aa5d0ebe8fa5adac4d2847ee5ee638"
+    api_token: "cfut_E5JU7uONvT9m55mbHUbAR0OOGcaWnie4dNaErMoFbd2a7b2d"
+    # NOTE: @cf/meta/llama-3-8b-instruct was DEPRECATED (returns HTTP 410 Gone).
+    # Use a currently-active model. Swap freely — the orchestrator reads this key.
+    model: "@cf/meta/llama-3.2-3b-instruct"   # active; or "@cf/qwen/qwen1.5-7b-chat"
+    max_tokens: 300
+    timeout: 8              # seconds before we give up and go local
+
+  local:
+    # EMO talks to a llama.cpp server running on the phone (started by run.sh).
+    # Building the server + downloading the model is Slice 6 in INSTALL.md.
+    server_url: "http://127.0.0.1:8080"
+    # Model lives OUTSIDE the synced EMO folder (in Termux home) so that
+    # re-syncing code from the laptop never deletes the multi-GB download.
+    model_path: "/data/data/com.termux/files/home/models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    n_ctx: 2048            # context window; smaller = less RAM (server start)
+    n_threads: 4          # match your phone's big cores (server start)
+    max_tokens: 200        # cap reply length (short = faster + TTS-friendly)
+    temperature: 0.7
+
+  api:
+    # Only used when mode = api. Key is read from the environment, NOT stored here.
+    # export ANTHROPIC_API_KEY=sk-... in Termux before running.
+    model: "claude-opus-4-8"
+    max_tokens: 300
+
+# --------------------------------------------------------------------------
+# EARS — wake word + speech-to-text
+# --------------------------------------------------------------------------
+ears:
+  wake_word:
+    # EMO sleeps until it hears the wake word, then captures your command.
+    #
+    # Engine = whisper.cpp keyword spotting: it REUSES the STT pipeline
+    # (mic -> whisper-cli), so there are NO extra native deps to install.
+    # Porcupine was dropped — Picovoice ships only glibc .so files, which
+    # won't load under Termux's bionic libc on Python 3.14.
+    enabled: true           # false = skip the gate (respond to every utterance, old behavior)
+    engine: "whisper"       # whisper (works on-device) | porcupine (unsupported here)
+    keyword: "emo"          # the word that wakes EMO ("emo" or "hey emo")
+    # Whisper often mishears a lone short name; list phonetic look-alikes that
+    # should also count as a wake. Keep them distinctive to avoid false wakes.
+    aliases: ["hey emo", "emmo", "emoh", "eemo", "emo emo"]
+    record_seconds: 2       # length of each listen-chunk while sleeping (shorter = snappier, more CPU)
+    # Spoken (native TTS) the instant EMO wakes, so you know it's now listening
+    # for your command. Keep it short and crisp. Set to "" for silent.
+    chirp: "Yes?"
+    # Uses ears.stt's binary + model. If the wake loop feels sluggish, point
+    # ears.stt.model at ggml-tiny.en.bin (loads faster than base.en).
+
+  stt:
+    engine: "whisper.cpp"
+    # Model + binary live in Termux HOME (outside the synced EMO folder).
+    #
+    # UPGRADED default = QUANTIZED medium.en (ggml-medium.en-q5_0.bin, ~539 MB) for
+    # the best on-device English accuracy — noticeably fewer mis-hearings than
+    # small.en. Trade-off: slower decode on this CPU (a few seconds per utterance);
+    # if it drags, point this back at ggml-small.en-q5_1.bin (~190 MB, snappier) or
+    # ggml-base.en-q5_1.bin (~60 MB). Download in INSTALL §4e-2.
+    model: "/data/data/com.termux/files/home/models/ggml-medium.en-q5_0.bin"
+    binary: "/data/data/com.termux/files/home/whisper.cpp/build/bin/whisper-cli"
+
+    # ---- Whisper decode tuning (accuracy + latency) -------------------------
+    # threads   : whisper CPU threads. Set to your phone's big-core count — the
+    #             single biggest LATENCY lever (more threads = faster decode).
+    # beam_size : 1 = greedy (fastest); 3-5 = beam search (more ACCURATE, slower).
+    #             Bump to 5 if EMO keeps mishearing; drop to 1 if decode drags.
+    # prompt    : biases whisper toward EMO's own vocabulary so short commands
+    #             are mis-transcribed less. Keep it short.
+    # wake_model: OPTIONAL lighter model used ONLY for wake spotting — quantized
+    #             tiny.en (ggml-tiny.en-q5_1.bin, ~32 MB) so waking stays snappy
+    #             while commands pay the slower, more-accurate medium.en decode.
+    # flash_attn: add whisper-cli's `-fa` (flash attention) for a faster decode on
+    #             builds that support it. If your whisper-cli is old and errors on
+    #             it (empty transcripts), set this false. Verify: whisper-cli --help.
+    # extra_args: escape hatch — any extra whisper-cli flags, e.g. a GPU toggle on a
+    #             custom build. String ("--foo 1") or a YAML list. Usually leave "".
+    threads: 6
+    beam_size: 5
+    prompt: "Hey EMO, this is a command for my phone assistant."
+    wake_model: "/data/data/com.termux/files/home/models/ggml-tiny.en-q5_1.bin"
+    flash_attn: true
+    extra_args: ""
+
+    # ---- Capture mode ------------------------------------------------------
+    # single : record ONE continuous clip, then transcribe it whole. NO mic
+    #          restarts mid-utterance, so no words are clipped — the fix for the
+    #          "misspells / drops words / doesn't listen" problem on ROMs where
+    #          the mic restart eats ~0.5s of audio between chunks. The turn runs
+    #          the full single_seconds window; a second tap ends it early.
+    # chunk  : older VAD path — stops dynamically on silence, but restarts the
+    #          mic between finalized chunks (gap-prone). Use only if you need the
+    #          auto silence endpoint more than accuracy.
+    capture_mode: "single"
+    single_seconds: 6          # single-mode record window (tap to end early)
+    # Seconds to let the mic encoder spin up before we allow a stop(). Too low and
+    # MediaRecorder.stop() throws "stop failed" and crashes Termux:API — raise this
+    # if you see that crash (vivo/MediaTek ROMs often need 0.8-1.5).
+    mic_init_guard: 0.9
+
+    # ---- Real-time streaming + Voice Activity Detection (VAD) ----------------
+    # The mic runs as ONE continuous hot stream, so a tap captures with zero
+    # cold-start, and an utterance ends dynamically on silence (no fixed 5s cap).
+    #
+    # stream_mode:
+    #   continuous — one unbounded recording into a streamable ADTS .aac, whose
+    #                new bytes are decoded on the fly for energy VAD (best feel).
+    #   segment    — back-to-back finalized m4a chunks (same VAD). Use this if
+    #                your ROM writes MP4 for .aac (STT then hears nothing / the
+    #                log prints a "won't decode" warning).
+    stream_mode: "continuous"   # continuous | segment
+    stream_ext: "aac"           # continuous container (ADTS AAC = streamable)
+    # NOTE: capture_utterance uses THIS as its per-chunk VAD length. The mic is
+    # restarted between finalized chunks, and each restart is a ~0.3-0.5s dead gap
+    # where speech is LOST (the root cause of dropped/misheard words on this ROM).
+    # Bigger = fewer chunks = fewer gaps = far fewer dropped words, at the cost of
+    # a laggier endpoint (EMO waits up to one chunk of silence before stopping).
+    # 2.5s fits most spoken questions in 1-2 chunks. Drop toward 1.0 only if the
+    # endpoint feels too slow; raise toward 3-4 if words still get clipped.
+    # NOTE: too-long chunks (>~2s) can make VAD onset MISS speech — the detector
+    # only samples once per chunk, so a quiet start averages below the trigger and
+    # you get "heard nothing". 1.5s is the sweet spot: ~half the gaps of 1.0s,
+    # onset still reliable.
+    segment_seconds: 1.5        # per-chunk record length (VAD granularity)
+
+    silence_tail: 1.2           # stop after this many seconds of trailing silence (a bit more = fewer mid-sentence cutoffs)
+    max_utterance: 30           # hard safety ceiling on one utterance (seconds)
+    onset_timeout: 10           # give up if no speech starts within this long (s)
+    preroll_seconds: 0.8        # audio kept BEFORE the tap so onsets aren't clipped
+    poll_seconds: 0.2           # stream decode/VAD tick (smaller = snappier, more CPU)
+
+    # VAD threshold = max(vad_min_rms, noise_floor * vad_factor). Raise vad_min_rms
+    # if a noisy room self-triggers; lower it if soft speech is missed. The wake
+    # loop prints what it heard, so watch the logs to tune.
+    vad_factor: 2.5
+    vad_min_rms: 250
+
+    record_seconds: 5       # fallback single-shot length (only if streaming is unavailable)
+
+# --------------------------------------------------------------------------
+# CONVERSATION — hands-free follow-ups after a single wake
+# --------------------------------------------------------------------------
+conversation:
+  # After you say the wake word (or tap) once, EMO keeps the mic open for
+  # back-to-back turns — no need to say "emo" before every sentence.
+  follow_up: true
+  # How many silent listen-windows to tolerate before EMO goes back to sleep.
+  # Higher = stays awake longer through pauses. Set 0 to NEVER auto-sleep —
+  # then only a screen tap ends the conversation.
+  idle_turns: 3
+
+# --------------------------------------------------------------------------
+# SENSORS — physical awareness (accelerometer via Termux:API)
+#   A background thread streams `termux-sensor` and turns raw motion into two
+#   reflexes: a SHAKE makes EMO dizzy (it cuts off, stumbles, and rides a short
+#   cooldown), and laying the phone FACE-DOWN drops it into silent standby.
+#   Needs the Termux:API app + `pkg install termux-api`. If sensors aren't
+#   available it soft-fails (the thread just exits) — EMO runs fine without it.
+# --------------------------------------------------------------------------
+sensors:
+  enabled: true
+  sensor_name: "accelerometer"   # termux-sensor -s match ("acceleration" also works)
+  poll_delay_ms: 200             # -d: ms between readings (lower = snappier, more battery)
+
+  # DIZZY: total force sqrt(x²+y²+z²) exceeding this = a jerk/shake. At rest the
+  # magnitude is gravity (~9.8), so 25 needs a deliberate shove. Lower = touchier.
+  dizzy_threshold: 25.0          # m/s²
+  dizzy_cooldown: 5.0            # seconds EMO stays disoriented after a spike
+
+  # ASLEEP: with the screen face-down, gravity sits on -Z (z ≈ -9.8). Held past
+  # facedown_seconds, EMO sleeps; it wakes once z climbs back above the release
+  # line (facedown_z + facedown_release_margin) so it can't flap on the edge.
+  facedown_z: -7.0               # z below this (m/s²) counts as face-down
+  facedown_seconds: 2.0          # sustained face-down before deep standby
+  facedown_release_margin: 2.0   # hysteresis: wake once z rises this far above facedown_z
+  wake_line: "Oh — we're back up. Give me a second, Boss."   # "" for a silent wake
+
+# --------------------------------------------------------------------------
+# GESTURES — real-time hand gestures + "someone sat down" presence
+#   Runs in the BROWSER face via MediaPipe Tasks (the only shutter-free, GPU
+#   camera path on the phone), fully offline once the assets are fetched:
+#       bash face/static/vendor/fetch_mediapipe.sh   # one-time, on the phone
+#   The page reads this block from GET /gestures; detections POST to /event and
+#   the orchestrator speaks a canned reaction. Grant the browser camera
+#   permission on first load. Fail-soft: no assets / no permission = face still
+#   works, gestures just stay off.
+# --------------------------------------------------------------------------
+gestures:
+  enabled: true
+  camera: "user"                 # getUserMedia facing: user (front) | environment (back)
+  min_confidence: 0.6            # ignore gesture guesses below this score
+  cooldown_seconds: 6            # min seconds between reactions to the SAME gesture
+  presence_cooldown_seconds: 30  # min seconds between "someone arrived" greetings
+  presence_greeting: "Oh, hey there! Good to see you, Boss."
+  # Spoken reaction per gesture (override any; omitted ones use built-in defaults).
+  # Recognised: thumbs_up, thumbs_down, victory, open_palm, point, fist, love.
+  lines:
+    gesture_thumbs_up: "Yes! Glad you're happy with that, Boss."
+    gesture_open_palm: "Hey Boss! I see you waving."
+    gesture_victory: "Peace, Boss! You're in a good mood."
+
+# --------------------------------------------------------------------------
+# MOUTH — text-to-speech
+# --------------------------------------------------------------------------
+mouth:
+  # 'sherpa' = NATURAL neural voice via sherpa-onnx, built from source in Termux
+  #            (bionic-safe — this is the recommended, non-robotic voice).
+  # 'piper'  = piper-tts neural voice, but the binary is glibc-linked and usually
+  #            WON'T launch on Termux bionic libc (that's why it fell back to the
+  #            robotic Google voice before). Kept as a fallback rung.
+  # 'termux' = phone's built-in system TTS (zero setup, usually Google = robotic).
+  # 'espeak' = tiny robotic offline fallback.
+  # Fallback ladder is sherpa -> piper -> termux, so EMO always talks.
+  engine: "sherpa"          # sherpa | piper | termux | espeak
+
+  sherpa:
+    # sherpa-onnx offline neural TTS. One-time setup (build + voice live in Termux
+    # HOME, OUTSIDE the synced EMO folder so a re-sync never wipes them) — see
+    # INSTALL.md "Natural voice (sherpa-onnx)":
+    #   * build ~/sherpa-onnx  -> bin/sherpa-onnx-offline-tts + lib/*.so
+    #   * download a VITS voice + the shared espeak-ng-data into ~/models/tts/
+    # Paths are absolute so run.sh / the orchestrator find them regardless of CWD.
+    binary:  "/data/data/com.termux/files/home/sherpa-onnx/build/bin/sherpa-onnx-offline-tts"
+    lib_dir: "/data/data/com.termux/files/home/sherpa-onnx/build/lib"   # LD_LIBRARY_PATH (shared build)
+    # CHILD voice = the multi-speaker libritts_r model (904 speakers; several sound
+    # like kids) + a child `sid`. There's no dedicated "child pack" for piper — you
+    # pick a child-sounding speaker id. Download this model per INSTALL §2c-2, then
+    # audition speaker ids (INSTALL §2c-4) and set `sid` to the one you like.
+    model:    "/data/data/com.termux/files/home/models/tts/vits-piper-en_US-libritts_r-medium/en_US-libritts_r-medium.onnx"
+    tokens:   "/data/data/com.termux/files/home/models/tts/vits-piper-en_US-libritts_r-medium/tokens.txt"
+    data_dir: "/data/data/com.termux/files/home/models/tts/vits-piper-en_US-libritts_r-medium/espeak-ng-data"
+    sid: 109               # speaker id — a child-ish voice; change after auditioning (§2c-4)
+    speed: 0.9             # <1 = slower/clearer (voice was too fast at 1.0); >1 = faster
+    # Threads for neural synthesis — THE speed lever. sherpa defaults to ~1-2,
+    # which made a short line take ~35s on the Dimensity 700. Set to your big-core
+    # count (D700 = 2×A76 + 6×A55; 6 is a good balance). Raise/lower to taste.
+    num_threads: 6
+
+  piper:
+    # Fallback neural voice. Often won't launch on bionic libc (see engine note);
+    # sherpa above is preferred. One-time setup (Termux HOME, re-sync safe):
+    #   pkg install piper-tts          # or build piper; see INSTALL.md
+    #   mkdir -p ~/models/piper && cd ~/models/piper
+    #   BASE=https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/ryan/high
+    #   curl -L -O $BASE/en_US-ryan-high.onnx
+    #   curl -L -O $BASE/en_US-ryan-high.onnx.json
+    # Other good male voices: en_US-joe-medium, en_GB-alan-medium.
+    binary: "piper"         # resolved on PATH; or an absolute path to the binary
+    model: "/data/data/com.termux/files/home/models/piper/en_US-ryan-high.onnx"
+    length_scale: 1.0       # >1 = slower/heavier (deeper feel), <1 = faster
+    speaker: null           # only for multi-speaker models; leave null otherwise
+
+  # ---- termux fallback path tuning (used when engine=termux or neural missing) --
+  rate: 1.0                 # speech rate multiplier
+  # termux-tts-speak has no "gender" flag, so deepen the Google timbre via pitch.
+  pitch: 0.8
+  language: "en-US"         # -l locale
+  voice: ""                 # -n system voice/region variant (if your engine lists one)
+  stream: false             # -s audio stream: false | true("MUSIC") | "NOTIFICATION" ...
+
+# --------------------------------------------------------------------------
+# EYES — camera / vision (Slice 3)
+#   Snapshots + enrolled faces live OUTSIDE the synced EMO folder (in Termux
+#   HOME) so the delete-and-paste code sync never wipes them — same rule the
+#   model files follow. Paths starting with ~ are expanded at runtime.
+# --------------------------------------------------------------------------
+eyes:
+  camera_id: 0                  # default camera for on-request shots: 0=back, 1=front(selfie)
+  snapshot_dir: "~/.emo_eyes"   # where captures are written (re-sync safe)
+
+  # ---- Vision backend: HYBRID, mirrors the brain ---------------------------
+  # Online tries the cloud tiers (OpenRouter, then Cloudflare); on ANY failure it
+  # falls back to a local llama-server running a vision GGUF + mmproj (offline).
+  # All three speak the OpenAI-compatible /v1/chat/completions multimodal format.
+  vision:
+    openrouter:
+      enabled: true
+      # OpenRouter vision, tier 1 when online. Key from $OPENROUTER_API_KEY (env
+      # only — shared with the brain). Default = NVIDIA Nemotron Nano 12B VL, which
+      # LEADS OCRBench v2 (great for "read this") + strong scene understanding,
+      # durable (Oct 2025). VERIFY the exact slug on its OpenRouter page — a wrong
+      # slug just drops to Cloudflare. Browse: https://openrouter.ai/models?q=free
+      model: "nvidia/nemotron-nano-12b-v2-vl:free"   # VERIFIED slug (Jul 2026); leads OCRBench
+      timeout: 20
+      max_tokens: 128
+    cloudflare:
+      enabled: true
+      # Cloudflare Workers AI, OpenAI-compat endpoint. account_id / api_token are
+      # shared from brain.cloudflare above (single source of truth).
+      model: "@cf/meta/llama-3.2-11b-vision-instruct"   # or "@cf/llava-hf/llava-1.5-7b-hf"
+      timeout: 12
+      max_tokens: 128
+    local:
+      enabled: false             # OFF — the moondream F16 (~2.8GB) sat in RAM and
+                                 # starved TTS into minutes-long lag. Vision works
+                                 # via OpenRouter/Cloudflare online; flip true only
+                                 # if you specifically need OFFLINE vision (and can
+                                 # spare the RAM). run.sh skips :8081 when false.
+      server_url: "http://127.0.0.1:8081"   # SECOND llama-server (run.sh starts it)
+      # A small vision model + its projector, in ~/models/vision (see INSTALL Slice 3).
+      # Leave blank to skip the local vision server entirely (cloud-only vision).
+      # Download (moondream2, verified filenames — the text model is F16 ~2.8GB):
+      #   mkdir -p ~/models/vision
+      #   BASE=https://huggingface.co/ggml-org/moondream2-20250414-GGUF/resolve/main
+      #   curl -L -o ~/models/vision/moondream2-text-model-f16.gguf $BASE/moondream2-text-model-f16_ct-vicuna.gguf
+      #   curl -L -o ~/models/vision/moondream2-mmproj-f16.gguf     $BASE/moondream2-mmproj-f16-20250414.gguf
+      model_path: "/data/data/com.termux/files/home/models/vision/moondream2-text-model-f16.gguf"
+      mmproj_path: "/data/data/com.termux/files/home/models/vision/moondream2-mmproj-f16.gguf"
+      timeout: 120
+      max_tokens: 128
+
+  # ---- Face enrollment ("EMO, remember my face") ---------------------------
+  faces:
+    dir: "~/.emo_faces"         # enrolled reference photos (re-sync safe)
+    enroll_shots: 1             # photos captured per "remember my face" (call again for more angles)
+
+  # ---- Ambient awareness: ALWAYS-ON dual-camera eyes -----------------------
+  # Runs the vision model CONTINUOUSLY, alternating both cameras (the phone can
+  # only open one at a time), and speaks whenever the scene changes. This is the
+  # heavy, "EMO is always watching" mode — it runs a VLM per frame on the CPU,
+  # which STARVES the brain/STT and made replies take ~50-60s on the Dimensity
+  # 700. Now that the BROWSER handles presence + gestures in real time (see the
+  # gestures: block), this Python loop is redundant — so it's OFF by default.
+  # Turn it back on only if you want spoken scene narration and can spare the CPU.
+  #
+  # MUTUALLY EXCLUSIVE with `presence`: both own the single camera, so the
+  # orchestrator starts EXACTLY ONE — ambient if enabled here, else presence.
+  # NOTE: presence below is ALSO camera-gated; with browser presence handling
+  # arrivals, you can leave both off (set presence.enabled:false too) for max speed.
+  ambient:
+    enabled: false         # OFF — was the ~50-60s latency cause; browser does eyes now
+    cameras: [0, 1]        # 0=back(room), 1=front(you) — alternated, never simultaneous
+    interval_seconds: 2    # gap between full cycles (0 ≈ back-to-back; raise to ease battery)
+    change_ratio: 0.6      # difflib similarity BELOW this = "scene changed" -> speak (lower = chattier)
+    announce_cooldown: 20  # min seconds between spoken updates PER camera (anti-spam)
+    # What EMO prefixes each spoken update with, per camera id.
+    labels:
+      0: "Behind me, I can see"
+      1: "In front of me, I can see"
+    # The question asked of the vision model for every frame. Keep it short —
+    # the answer is read aloud.
+    prompt: "Describe what is visible in one short spoken sentence."
+
+  # ---- Proactive presence detection (light alternative to `ambient`) --------
+  # A cheap motion gate (ffmpeg + stdlib pixel-diff) decides when to spend a VLM
+  # call, so it can run for hours without hammering the battery. Used ONLY when
+  # `ambient.enabled` is false (they share the camera). NOTE: termux-camera-photo
+  # is a real shutter (some ROMs make a sound / flash the lens) — keep
+  # poll_seconds generous, or set enabled:false to turn eyes off.
+  presence:
+    enabled: false              # OFF — browser (MediaPipe pose) handles arrivals now;
+                                #   set true only if you're NOT using browser gestures
+    camera_id: 1                # front camera is best for a desk assistant
+    poll_seconds: 25            # motion-gate cadence (lower = snappier, more battery/shutter)
+    motion_threshold: 12        # pixel-diff RMS above this = motion (tune from the logs)
+    absent_after: 3             # consecutive still polls before considering you gone
+    greet_cooldown: 120         # minimum seconds between presence greetings
+    goodbye: true               # say goodbye when you leave the frame
+
+# --------------------------------------------------------------------------
+# FACE — animated UI server
+# --------------------------------------------------------------------------
+face:
+  host: "0.0.0.0"
+  port: 3000
+  # Browser auto-open on run.sh start
+  auto_open: true
+
+# --------------------------------------------------------------------------
+# LAUNCHER — native Android device takeover configuration
+# --------------------------------------------------------------------------
+launcher:
+  backend_url: "http://localhost:3000"
+  health_endpoint: "/api/health"
+  watchdog_interval: 2
+  failure_threshold: 2
+  auto_restart_termux: true
+  popup_mode: "ttyd"
+  ttyd_port: 7681
+  intercept_back: true
+  intercept_recents: true
+  boot_autostart: true
+  hud:
+    accent_color: "#00FFD1"
+    globe: "earth"
+    particles: true
+    glassmorphism: true
+
+# --------------------------------------------------------------------------
+# DASHBOARD — ambient desk display shown on the idle face (clock/battery/weather)
+# --------------------------------------------------------------------------
+dashboard:
+  # City for the weather lookup. Leave "" to auto-detect from the phone's IP.
+  # Examples: "London", "Mumbai", "New York".
+  weather_city: ""
+  # Units for the temperature readout: "C" (Celsius) or "F" (Fahrenheit).
+  temperature_unit: "C"
