@@ -167,3 +167,107 @@ def is_workspace_query(user_msg):
         "email", "mail", "messages", "internship", "isro", "stipend", "bank", "received", "from"
     ]
     return any(k in low for k in keywords)
+
+
+# ---------- GOOGLE DRIVE MEMORY SYNC ----------
+_DRIVE_MEMORY_FILENAME = "EMO_memory_sync.json"
+_drive_memory_file_id = None   # cached Drive file ID after first upload
+
+
+def _get_drive_memory_file_id(token):
+    """Search Drive for EMO_memory_sync.json and return its file ID, or None."""
+    try:
+        q = urllib.parse.quote(f"name='{_DRIVE_MEMORY_FILENAME}' and trashed=false")
+        url = f"https://www.googleapis.com/drive/v3/files?q={q}&spaces=drive&fields=files(id,modifiedTime)"
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            files = data.get("files", [])
+            if files:
+                return files[0]["id"]
+    except Exception:
+        pass
+    return None
+
+
+def push_memory_to_drive(memory_list):
+    """Push the current memory list to Google Drive as EMO_memory_sync.json.
+    Creates the file on first call, patches it on subsequent calls.
+    Silently fails if offline or Drive is unavailable."""
+    global _drive_memory_file_id
+    token = get_access_token()
+    if not token:
+        return
+
+    try:
+        content = json.dumps(memory_list, ensure_ascii=False, indent=2).encode("utf-8")
+
+        # Find existing file if we don't have the ID cached
+        if not _drive_memory_file_id:
+            _drive_memory_file_id = _get_drive_memory_file_id(token)
+
+        if _drive_memory_file_id:
+            # PATCH (update) the existing file's content
+            url = (f"https://www.googleapis.com/upload/drive/v3/files/"
+                   f"{_drive_memory_file_id}?uploadType=media")
+            req = urllib.request.Request(url, data=content, method="PATCH", headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json; charset=utf-8",
+                "Content-Length": str(len(content)),
+            })
+        else:
+            # POST (create) a new file — multipart: metadata + content
+            boundary = "EMO_MEMORY_BOUNDARY_001"
+            metadata = json.dumps({"name": _DRIVE_MEMORY_FILENAME,
+                                   "mimeType": "application/json"}).encode("utf-8")
+            body = (
+                f"--{boundary}\r\n".encode() +
+                b"Content-Type: application/json; charset=UTF-8\r\n\r\n" +
+                metadata + b"\r\n" +
+                f"--{boundary}\r\n".encode() +
+                b"Content-Type: application/json\r\n\r\n" +
+                content + b"\r\n" +
+                f"--{boundary}--".encode()
+            )
+            url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart"
+            req = urllib.request.Request(url, data=body, method="POST", headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": f"multipart/related; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            })
+
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            if not _drive_memory_file_id:
+                _drive_memory_file_id = result.get("id")
+            print(f"[DriveSync] Memory pushed to Drive ({len(memory_list)} messages)")
+    except Exception as e:
+        print(f"[DriveSync] Push failed (offline?): {e}")
+
+
+def pull_memory_from_drive():
+    """Pull EMO_memory_sync.json from Google Drive.
+    Returns the parsed memory list, or None if not found / offline."""
+    global _drive_memory_file_id
+    token = get_access_token()
+    if not token:
+        return None
+
+    try:
+        if not _drive_memory_file_id:
+            _drive_memory_file_id = _get_drive_memory_file_id(token)
+        if not _drive_memory_file_id:
+            print("[DriveSync] No memory file on Drive yet — starting fresh")
+            return None
+
+        url = f"https://www.googleapis.com/drive/v3/files/{_drive_memory_file_id}?alt=media"
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {token}"})
+        with urllib.request.urlopen(req, timeout=6) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            if isinstance(data, list):
+                print(f"[DriveSync] Memory pulled from Drive ({len(data)} messages)")
+                return data
+    except Exception as e:
+        print(f"[DriveSync] Pull failed (offline?): {e}")
+    return None
+
