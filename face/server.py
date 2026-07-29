@@ -557,7 +557,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "event": event})
             return
 
-        # Direct Ultra-Fast NVIDIA AI Chat Endpoint (< 0.5s response) with JSON Memory
+        # Direct Ultra-Fast NVIDIA AI Chat Endpoint with Memory, Web Search & Google Workspace
         if path == "/api/ai/chat":
             body = self._read_json()
             if not body or "message" not in body:
@@ -570,17 +570,39 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             try:
-                from brain import api_llm, memory
+                from brain import api_llm, memory, web_search, google_workspace
+
+                context_addons = ""
+                
+                # Real-Time Google & Web Search Trigger
+                if web_search.is_search_needed(user_msg):
+                    print(f"[chat.api] Fetching live web search for: '{user_msg}'")
+                    search_res = web_search.search_web(user_msg)
+                    if search_res:
+                        context_addons += f"\n\n[LIVE SEARCH RESULTS]:\n{search_res}"
+
+                # Google Workspace Integration Trigger (Calendar, Gmail, Drive)
+                if google_workspace.is_workspace_query(user_msg):
+                    low = user_msg.lower()
+                    if any(k in low for k in ["email", "gmail", "inbox"]):
+                        ws_res = google_workspace.list_unread_emails()
+                    elif any(k in low for k in ["calendar", "schedule", "meeting", "event"]):
+                        ws_res = google_workspace.list_calendar_events()
+                    else:
+                        ws_res = google_workspace.search_drive_docs(user_msg)
+                    context_addons += f"\n\n[GOOGLE WORKSPACE DATA]:\n{ws_res}"
+
                 system = (
                     "You are EMO, a warm, cheerful, excitable AI companion. "
-                    "You have a sharp memory and remember every detail the user tells you. "
+                    "You have live Google/web search access and Google Workspace integration. "
                     "Always answer in ONE short, friendly spoken sentence. "
                     "Use light enthusiasm like 'Ooh!', 'Got it, Boss!', 'Yay!'."
                 )
 
                 # Fetch full conversation history from JSON memory
                 history = memory.get_history_for_llm()
-                history.append({"role": "user", "content": user_msg})
+                prompt_msg = user_msg + context_addons if context_addons else user_msg
+                history.append({"role": "user", "content": prompt_msg})
 
                 reply = api_llm.generate(system, history)
 
@@ -591,6 +613,29 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"[chat.api] Error: {e}")
                 self._send_json({"ok": False, "reply": "I'm right here with you, Boss!"})
+            return
+
+        # Google Workspace Status API
+        if path == "/api/workspace/status":
+            try:
+                from brain import google_workspace
+                self._send_json({"ok": True, "connected": google_workspace.is_connected()})
+            except Exception:
+                self._send_json({"ok": False, "connected": False})
+            return
+
+        # Google Workspace Connect API (Save Access Token or API Key)
+        if path == "/api/workspace/connect":
+            body = self._read_json()
+            if not body:
+                self._send_json({"error": "missing token or credentials"}, code=400)
+                return
+            try:
+                from brain import google_workspace
+                ok = google_workspace.save_credentials(body)
+                self._send_json({"ok": ok, "connected": ok})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
             return
 
         # Face Recognition Status API

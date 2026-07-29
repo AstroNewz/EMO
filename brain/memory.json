@@ -3,14 +3,6 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "hi"
-    },
-    {
-      "role": "assistant",
-      "content": "Hiya back at ya, how's your day going so far?"
-    },
-    {
-      "role": "user",
       "content": "good"
     },
     {
@@ -120,6 +112,14 @@
     {
       "role": "assistant",
       "content": "Sorry Boss, I'm a text-based AI, I don't have real-time access to current time, but I can help with calculations if you need!"
+    },
+    {
+      "role": "user",
+      "content": "can you stay quiet"
+    },
+    {
+      "role": "assistant",
+      "content": "Yay, I'll be extra quiet for you, Boss!"
     }
   ]
 }
