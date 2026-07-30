@@ -613,12 +613,17 @@ _LIST_WIN_RE = re.compile(
 
 # In-App Actions (e.g. "in calculator do 200+300", "do 200+300 in calculator", "in notepad write hello")
 _IN_APP_RE = re.compile(
-    r"^(?:in|on|using|with)\s+(?:the\s+)?(?P<app>calculator|calc|notepad|chrome|browser|vscode|code|word|excel|terminal|cmd)\s+(?:do|type|write|calculate|compute|search|open|input)?\s*[:\s]+(?P<action>.+)$",
+    r"^(?:in|on|using|with)\s+(?:the\s+)?(?P<app>calculator|calc|notepad|chrome|browser|google|vscode|code|word|excel|terminal|cmd)\s+(?:do|type|write|calculate|compute|search|open|input)?\s*[:\s]+(?P<action>.+)$",
     re.IGNORECASE,
 )
 
 _DO_IN_APP_RE = re.compile(
-    r"^(?:do|type|write|calculate|compute|search|input)\s+(?P<action>.+?)\s+(?:in|on|using|with)\s+(?:the\s+)?(?P<app>calculator|calc|notepad|chrome|browser|vscode|code|word|excel|terminal|cmd)$",
+    r"^(?:do|type|write|calculate|compute|search|input)\s+(?P<action>.+?)\s+(?:in|on|using|with)\s+(?:the\s+)?(?P<app>calculator|calc|notepad|chrome|browser|google|vscode|code|word|excel|terminal|cmd)$",
+    re.IGNORECASE,
+)
+
+_GOOGLE_SEARCH_RE = re.compile(
+    r"^(?:search\s+(?:for\s+)?|google\s+(?:search\s+)?|find\s+)(?P<query>.+?)(?:\s+(?:on|in|using|with)\s+(?:google|chrome|browser))?$",
     re.IGNORECASE,
 )
 
@@ -626,7 +631,7 @@ _DO_IN_APP_RE = re.compile(
 def interact_app(app_name: str, action: str) -> dict:
     """
     Perform an action directly inside an open application.
-    Supports Calculator math typing, Notepad text typing, Chrome web searching, etc.
+    Supports UWP Calculator math typing, Notepad text typing, Chrome Google searching, etc.
     """
     low_app = app_name.strip().lower()
     low_action = action.strip()
@@ -634,8 +639,9 @@ def interact_app(app_name: str, action: str) -> dict:
     # 1. Calculator Interaction
     if low_app in ("calculator", "calc"):
         open_app("calculator")
+        time.sleep(0.8)
         focus_window("calculator")
-        time.sleep(0.4)
+        time.sleep(0.3)
 
         clean_expr = (
             low_action.replace("plus", "+")
@@ -646,21 +652,27 @@ def interact_app(app_name: str, action: str) -> dict:
             .replace("over", "/")
             .replace(" ", "")
         )
-        if not clean_expr.endswith("="):
-            clean_expr += "="
+        if clean_expr.endswith("="):
+            clean_expr = clean_expr.rstrip("=")
 
         try:
             pag = _get_pyautogui()
-            pag.typewrite(clean_expr, interval=0.04)
+            # Press Esc to clear previous Calculator entry
+            pag.press("esc")
+            time.sleep(0.15)
+            # Type numbers and operator into Calculator
+            pag.typewrite(clean_expr, interval=0.06)
+            time.sleep(0.15)
+            pag.press("enter")
+            pag.press("=")
             time.sleep(0.3)
         except Exception:
             pass
 
         calc_result = None
         try:
-            expr_eval = clean_expr.rstrip("=")
-            if re.match(r"^[\d\+\-\*\/\.\(\)\s]+$", expr_eval):
-                calc_result = eval(expr_eval)
+            if re.match(r"^[\d\+\-\*\/\.\(\)\s]+$", clean_expr):
+                calc_result = eval(clean_expr)
         except Exception:
             pass
 
@@ -674,32 +686,33 @@ def interact_app(app_name: str, action: str) -> dict:
 
     # 2. Notepad Interaction
     elif low_app in ("notepad", "word"):
-        open_app(low_app)
-        focus_window(low_app)
-        time.sleep(0.3)
-        type_text(low_action)
-        return {"ok": True, "reply": f"Typed '{low_action}' into {app_name.title()}, Boss!", "action_type": "app_interaction", "app": low_app}
-
-    # 3. Chrome / Browser Search Interaction
-    elif low_app in ("chrome", "browser"):
-        open_app("chrome")
-        focus_window("chrome")
+        open_app("notepad")
+        time.sleep(0.8)
+        focus_window("notepad")
         time.sleep(0.3)
         try:
             pag = _get_pyautogui()
-            pag.hotkey("ctrl", "l")
-            time.sleep(0.2)
             pag.typewrite(low_action, interval=0.03)
             pag.press("enter")
         except Exception:
-            pass
-        return {"ok": True, "reply": f"Searched '{low_action}' in Chrome, Boss!", "action_type": "app_interaction", "app": "chrome"}
+            type_text(low_action)
+        return {"ok": True, "reply": f"Opened Notepad and typed '{low_action}', Boss!", "action_type": "app_interaction", "app": low_app}
+
+    # 3. Google Search / Chrome Browser Interaction
+    elif low_app in ("chrome", "browser", "google"):
+        import urllib.parse
+        search_url = f"https://www.google.com/search?q={urllib.parse.quote(low_action)}"
+        webbrowser.open(search_url)
+        time.sleep(0.5)
+        focus_window("chrome")
+        return {"ok": True, "reply": f"Opened Google Search for '{low_action}' in Chrome, Boss!", "action_type": "app_interaction", "app": "chrome"}
 
     # 4. Generic App Action Fallback
     else:
         open_app(low_app)
+        time.sleep(0.6)
         focus_window(low_app)
-        time.sleep(0.3)
+        time.sleep(0.2)
         type_text(low_action)
         return {"ok": True, "reply": f"Entered '{low_action}' into {app_name.title()}, Boss!", "action_type": "app_interaction", "app": low_app}
 
@@ -724,6 +737,7 @@ def is_control_command(text: str) -> bool:
     return bool(
         _IN_APP_RE.match(t)
         or _DO_IN_APP_RE.match(t)
+        or _GOOGLE_SEARCH_RE.match(t)
         or _OPEN_RE.match(t)
         or _FOCUS_RE.match(t)
         or _CLOSE_RE.match(t)
@@ -734,7 +748,6 @@ def is_control_command(text: str) -> bool:
         or _MIN_RE.match(t)
         or _LIST_WIN_RE.search(t)
     )
-
 
 
 def parse_and_execute(text: str) -> dict:
@@ -750,6 +763,13 @@ def parse_and_execute(text: str) -> dict:
         app_target = m_in.group("app")
         action_target = m_in.group("action")
         return interact_app(app_target, action_target)
+
+    # 0b. Google Search (e.g. "google search python", "search python on google", "google python")
+    m_g = _GOOGLE_SEARCH_RE.match(t)
+    if m_g and not _OPEN_RE.match(t):
+        query = m_g.group("query").strip()
+        return interact_app("chrome", query)
+
 
     # 1. Screenshot
     if _SCREENSHOT_RE.search(t):

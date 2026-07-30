@@ -3,70 +3,6 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "use calculator you just opened to do this calculation"
-    },
-    {
-      "role": "assistant",
-      "content": "500, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "can you open settings"
-    },
-    {
-      "role": "assistant",
-      "content": "Opening settings now, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "emo open notepad"
-    },
-    {
-      "role": "assistant",
-      "content": "Opening notepad now, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "notepad is not opened"
-    },
-    {
-      "role": "assistant",
-      "content": "Notepad's closed, Boss."
-    },
-    {
-      "role": "user",
-      "content": "open the sticky notes"
-    },
-    {
-      "role": "assistant",
-      "content": "Opening the sticky notes now, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "close notepad"
-    },
-    {
-      "role": "assistant",
-      "content": "Closed Untitled - Notepad, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "close settingd"
-    },
-    {
-      "role": "assistant",
-      "content": "Couldn't find 'settingd' to close, Boss."
-    },
-    {
-      "role": "user",
-      "content": "close calculator"
-    },
-    {
-      "role": "assistant",
-      "content": "Closed CalculatorApp.exe, Boss!"
-    },
-    {
-      "role": "user",
       "content": "close setting"
     },
     {
@@ -120,6 +56,70 @@
     {
       "role": "assistant",
       "content": "Typed 'meeting notes' into Notepad, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "in calculator do 200+300"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '200+300=' into Calculator for you, Boss! Result is 500."
+    },
+    {
+      "role": "user",
+      "content": "in calculator do 200+300"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '200+300=' into Calculator for you, Boss! Result is 500."
+    },
+    {
+      "role": "user",
+      "content": "in notepad write meeting at 4pm"
+    },
+    {
+      "role": "assistant",
+      "content": "Typed 'meeting at 4pm' into Notepad, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "in chrome search Python tutorials"
+    },
+    {
+      "role": "assistant",
+      "content": "Searched 'Python tutorials' in Chrome, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "in calculator do 200+300"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '200+300' into Calculator for you, Boss! Result is 500."
+    },
+    {
+      "role": "user",
+      "content": "in notepad write meeting at 4pm"
+    },
+    {
+      "role": "assistant",
+      "content": "Opened Notepad and typed 'meeting at 4pm', Boss!"
+    },
+    {
+      "role": "user",
+      "content": "google search python tutorials"
+    },
+    {
+      "role": "assistant",
+      "content": "Opened Google Search for 'python tutorials' in Chrome, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "search python on google"
+    },
+    {
+      "role": "assistant",
+      "content": "Opened Google Search for 'python' in Chrome, Boss!"
     }
   ]
 }
