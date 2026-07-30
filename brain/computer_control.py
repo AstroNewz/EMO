@@ -611,16 +611,106 @@ _LIST_WIN_RE = re.compile(
     re.IGNORECASE,
 )
 
+# In-App Actions (e.g. "in calculator do 200+300", "do 200+300 in calculator", "in notepad write hello")
+_IN_APP_RE = re.compile(
+    r"^(?:in|on|using|with)\s+(?:the\s+)?(?P<app>calculator|calc|notepad|chrome|browser|vscode|code|word|excel|terminal|cmd)\s+(?:do|type|write|calculate|compute|search|open|input)?\s*[:\s]+(?P<action>.+)$",
+    re.IGNORECASE,
+)
+
+_DO_IN_APP_RE = re.compile(
+    r"^(?:do|type|write|calculate|compute|search|input)\s+(?P<action>.+?)\s+(?:in|on|using|with)\s+(?:the\s+)?(?P<app>calculator|calc|notepad|chrome|browser|vscode|code|word|excel|terminal|cmd)$",
+    re.IGNORECASE,
+)
+
+
+def interact_app(app_name: str, action: str) -> dict:
+    """
+    Perform an action directly inside an open application.
+    Supports Calculator math typing, Notepad text typing, Chrome web searching, etc.
+    """
+    low_app = app_name.strip().lower()
+    low_action = action.strip()
+
+    # 1. Calculator Interaction
+    if low_app in ("calculator", "calc"):
+        open_app("calculator")
+        focus_window("calculator")
+        time.sleep(0.4)
+
+        clean_expr = (
+            low_action.replace("plus", "+")
+            .replace("minus", "-")
+            .replace("times", "*")
+            .replace("x", "*")
+            .replace("divided by", "/")
+            .replace("over", "/")
+            .replace(" ", "")
+        )
+        if not clean_expr.endswith("="):
+            clean_expr += "="
+
+        try:
+            pag = _get_pyautogui()
+            pag.typewrite(clean_expr, interval=0.04)
+            time.sleep(0.3)
+        except Exception:
+            pass
+
+        calc_result = None
+        try:
+            expr_eval = clean_expr.rstrip("=")
+            if re.match(r"^[\d\+\-\*\/\.\(\)\s]+$", expr_eval):
+                calc_result = eval(expr_eval)
+        except Exception:
+            pass
+
+        ss = take_screenshot()
+        reply_val = f" {calc_result}" if calc_result is not None else ""
+        reply = f"I entered '{clean_expr}' into Calculator for you, Boss! Result is{reply_val}."
+        res = {"ok": True, "reply": reply, "action_type": "app_interaction", "app": "calculator"}
+        if ss.get("ok"):
+            res["screenshot_b64"] = ss["image_b64"]
+        return res
+
+    # 2. Notepad Interaction
+    elif low_app in ("notepad", "word"):
+        open_app(low_app)
+        focus_window(low_app)
+        time.sleep(0.3)
+        type_text(low_action)
+        return {"ok": True, "reply": f"Typed '{low_action}' into {app_name.title()}, Boss!", "action_type": "app_interaction", "app": low_app}
+
+    # 3. Chrome / Browser Search Interaction
+    elif low_app in ("chrome", "browser"):
+        open_app("chrome")
+        focus_window("chrome")
+        time.sleep(0.3)
+        try:
+            pag = _get_pyautogui()
+            pag.hotkey("ctrl", "l")
+            time.sleep(0.2)
+            pag.typewrite(low_action, interval=0.03)
+            pag.press("enter")
+        except Exception:
+            pass
+        return {"ok": True, "reply": f"Searched '{low_action}' in Chrome, Boss!", "action_type": "app_interaction", "app": "chrome"}
+
+    # 4. Generic App Action Fallback
+    else:
+        open_app(low_app)
+        focus_window(low_app)
+        time.sleep(0.3)
+        type_text(low_action)
+        return {"ok": True, "reply": f"Entered '{low_action}' into {app_name.title()}, Boss!", "action_type": "app_interaction", "app": low_app}
+
 
 def clean_command(text: str) -> str:
     """Strip leading EMO trigger words and trailing filler words."""
     t = text.strip()
-    # Strip leading trigger words ("hey emo", "can you open", "please", etc.)
     t = re.sub(
         r"^(?:hey|hi|hello|ok|okay)?\s*(?:emo)?\s*(?:please|can you|could you|would you|i want you to|help me|kindly)?\s*",
         "", t, flags=re.IGNORECASE
     ).strip()
-    # Strip trailing filler ("please", "boss", "thanks")
     t = re.sub(
         r"\s*(?:please|emo|boss|thanks|thank you)?$",
         "", t, flags=re.IGNORECASE
@@ -632,7 +722,9 @@ def is_control_command(text: str) -> bool:
     """Return True if text is a computer control command."""
     t = clean_command(text)
     return bool(
-        _OPEN_RE.match(t)
+        _IN_APP_RE.match(t)
+        or _DO_IN_APP_RE.match(t)
+        or _OPEN_RE.match(t)
         or _FOCUS_RE.match(t)
         or _CLOSE_RE.match(t)
         or _TYPE_RE.match(t)
@@ -644,6 +736,7 @@ def is_control_command(text: str) -> bool:
     )
 
 
+
 def parse_and_execute(text: str) -> dict:
     """
     Parse a control command from natural language and execute it natively on Windows.
@@ -651,8 +744,16 @@ def parse_and_execute(text: str) -> dict:
     """
     t = clean_command(text)
 
+    # 0. In-App Actions (e.g. "in calculator do 200+300", "do 200+300 in calculator")
+    m_in = _IN_APP_RE.match(t) or _DO_IN_APP_RE.match(t)
+    if m_in:
+        app_target = m_in.group("app")
+        action_target = m_in.group("action")
+        return interact_app(app_target, action_target)
+
     # 1. Screenshot
     if _SCREENSHOT_RE.search(t):
+
         result = take_screenshot()
         if result["ok"]:
             return {**result, "reply": "Screenshot taken, Boss!", "action_type": "screenshot"}

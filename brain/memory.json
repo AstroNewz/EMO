@@ -3,83 +3,11 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "hi emo"
+      "content": "use calculator you just opened to do this calculation"
     },
     {
       "role": "assistant",
-      "content": "Hey Boss!"
-    },
-    {
-      "role": "user",
-      "content": "EMO open Notepad"
-    },
-    {
-      "role": "assistant",
-      "content": "Notepad's open, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "EMO open VS Code"
-    },
-    {
-      "role": "assistant",
-      "content": "VS Code is live, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "EMO what is open"
-    },
-    {
-      "role": "assistant",
-      "content": "Notepad and VS Code are open, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "EMO bring up Notepad"
-    },
-    {
-      "role": "assistant",
-      "content": "Notepad's front and center, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "emo press control and tab"
-    },
-    {
-      "role": "assistant",
-      "content": "Switched to VS Code, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "emo take screenshot"
-    },
-    {
-      "role": "assistant",
-      "content": "Screenshot taken, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "EMO send Sanu a whatsapp: I'll be home by 8"
-    },
-    {
-      "role": "assistant",
-      "content": "Couldn't send to Sanu: No phone number saved for 'Sanu'. Add it via EMO: 'save Sanu as +91...'."
-    },
-    {
-      "role": "user",
-      "content": "emo open notepad"
-    },
-    {
-      "role": "assistant",
-      "content": "Opening notepad now, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "hey emo launch calc"
-    },
-    {
-      "role": "assistant",
-      "content": "Opening calc now, Boss!"
+      "content": "500, Boss!"
     },
     {
       "role": "user",
@@ -91,35 +19,107 @@
     },
     {
       "role": "user",
-      "content": "please take a screenshot"
+      "content": "emo open notepad"
     },
     {
       "role": "assistant",
-      "content": "Screenshot taken, Boss!"
+      "content": "Opening notepad now, Boss!"
     },
     {
       "role": "user",
-      "content": "what is open"
+      "content": "notepad is not opened"
     },
     {
       "role": "assistant",
-      "content": "Open apps: Untitled - Notepad"
+      "content": "Notepad's closed, Boss."
     },
     {
       "role": "user",
-      "content": "emo type Hello EMO"
+      "content": "open the sticky notes"
     },
     {
       "role": "assistant",
-      "content": "Typed it, Boss!"
+      "content": "Opening the sticky notes now, Boss!"
     },
     {
       "role": "user",
-      "content": "close calc"
+      "content": "close notepad"
+    },
+    {
+      "role": "assistant",
+      "content": "Closed Untitled - Notepad, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "close settingd"
+    },
+    {
+      "role": "assistant",
+      "content": "Couldn't find 'settingd' to close, Boss."
+    },
+    {
+      "role": "user",
+      "content": "close calculator"
     },
     {
       "role": "assistant",
       "content": "Closed CalculatorApp.exe, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "close setting"
+    },
+    {
+      "role": "assistant",
+      "content": "Closed SystemSettings.exe, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "in calculator do 200+300"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '200+300=' into Calculator for you, Boss! Result is 500."
+    },
+    {
+      "role": "user",
+      "content": "in calculator do 200+300"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '200+300=' into Calculator for you, Boss! Result is 500."
+    },
+    {
+      "role": "user",
+      "content": "do 500*4 in calculator"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '500*4=' into Calculator for you, Boss! Result is 2000."
+    },
+    {
+      "role": "user",
+      "content": "do 500*4 in calculator"
+    },
+    {
+      "role": "assistant",
+      "content": "I entered '500*4=' into Calculator for you, Boss! Result is 2000."
+    },
+    {
+      "role": "user",
+      "content": "in notepad write meeting notes"
+    },
+    {
+      "role": "assistant",
+      "content": "Typed 'meeting notes' into Notepad, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "in notepad write meeting notes"
+    },
+    {
+      "role": "assistant",
+      "content": "Typed 'meeting notes' into Notepad, Boss!"
     }
   ]
 }
