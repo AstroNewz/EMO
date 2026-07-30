@@ -232,7 +232,7 @@ def is_workspace_query(user_msg):
     keywords = [
         "google calendar", "schedule", "events", "meetings", "appointment",
         "unread email", "gmail", "inbox", "my emails", "google drive", "google doc", "my files",
-        "email", "mail", "messages", "internship", "isro", "stipend", "bank", "received", "from"
+        "email", "mail", "messages", "internship", "isro", "stipend", "bank", "received"
     ]
     return any(k in low for k in keywords)
 

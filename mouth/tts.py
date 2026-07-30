@@ -152,6 +152,22 @@ def _speak_termux(text, cfg, on_audio_start=None):
     return True
 
 
+def _speak_win32(text, on_audio_start=None):
+    """Native Windows Speech Synthesizer (SAPI5) via PowerShell."""
+    if sys.platform != "win32":
+        return False
+    if on_audio_start:
+        on_audio_start()
+    clean_text = text.replace("'", "''").replace('"', '""')
+    ps_cmd = f"Add-Type -AssemblyName System.Speech; (New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('{clean_text}')"
+    try:
+        rc = _run_tracked(["powershell", "-Command", ps_cmd], timeout=max(20, len(text) // 8))
+        return rc == 0
+    except Exception as e:
+        print(f"[tts] win32 speech failed: {e}")
+        return False
+
+
 def _speak_espeak(text, rate, on_audio_start=None):
     """Lightweight offline fallback. pkg install espeak-ng"""
     if shutil.which("espeak-ng") is None:
@@ -337,7 +353,9 @@ def speak(text, cfg=None, on_audio_start=None):
     cfg = cfg if cfg is not None else section("mouth", {})
     engine = (cfg.get("engine") or "termux").lower()
 
-    if engine == "termux":
+    if engine == "win32" or (sys.platform == "win32" and engine == "termux"):
+        ok = _speak_win32(text, on_audio_start)
+    elif engine == "termux":
         ok = _speak_termux(text, cfg, on_audio_start)
     elif engine == "espeak":
         ok = _speak_espeak(text, cfg.get("rate", 1.0), on_audio_start)
@@ -346,15 +364,18 @@ def speak(text, cfg=None, on_audio_start=None):
     elif engine == "piper":
         ok = _speak_piper(text, cfg, on_audio_start)
     else:
-        print(f"[tts] unknown engine '{engine}', using termux.")
-        ok = _speak_termux(text, cfg, on_audio_start)
+        print(f"[tts] unknown engine '{engine}'.")
+        ok = _speak_win32(text, on_audio_start) if sys.platform == "win32" else _speak_termux(text, cfg, on_audio_start)
 
     if _stopped.is_set():                # a reflex cut this utterance off — that's
         return True                      # intentional, so don't retry another engine
-    # Last-ditch fallback: if the chosen engine wasn't available, try termux.
-    if not ok and engine != "termux":
-        print("[tts] falling back to termux engine.")
-        ok = _speak_termux(text, cfg, on_audio_start)
+    # Last-ditch fallback: if the chosen engine wasn't available, try win32 or termux.
+    if not ok:
+        if sys.platform == "win32":
+            ok = _speak_win32(text, on_audio_start)
+        elif engine != "termux":
+            print("[tts] falling back to termux engine.")
+            ok = _speak_termux(text, cfg, on_audio_start)
     return ok
 
 

@@ -9,9 +9,18 @@ __pycache__/
 *creds*.json
 *.mp3
 *.log
+token*.json
 
 # Build & Gradle
 .gradle/
 build/
 bin/
 .DS_Store
+
+# Android build & IDE caches
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/local.properties
+*.idea/
