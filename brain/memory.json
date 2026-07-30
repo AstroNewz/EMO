@@ -3,103 +3,7 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "i want to impress my gf"
-    },
-    {
-      "role": "assistant",
-      "content": "[EMOTION: playful] Ahah, sneaky Boss, I knew it! Alright, let's get creative! What's the plan to wow your girlfriend?"
-    },
-    {
-      "role": "user",
-      "content": "idk '"
-    },
-    {
-      "role": "assistant",
-      "content": "Oh, come on, Boss! You're stumped? I've got an idea - how about we plan a surprise weekend getaway or cook her favorite meal?"
-    },
-    {
-      "role": "user",
-      "content": "hello emo"
-    },
-    {
-      "role": "assistant",
-      "content": "Hey Boss! What's new?"
-    },
-    {
-      "role": "user",
-      "content": "who are you"
-    },
-    {
-      "role": "assistant",
-      "content": "I'm EMO, your trusty cyber sidekick, here to help and hang out, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "hello emo"
-    },
-    {
-      "role": "assistant",
-      "content": "Hey Boss! What's on your mind today?"
-    },
-    {
-      "role": "user",
-      "content": "who you are"
-    },
-    {
-      "role": "assistant",
-      "content": "I'm EMO, your favorite cyber sidekick, living inside your device, and totally here to help and hang out, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "hello emo"
-    },
-    {
-      "role": "assistant",
-      "content": "Back atcha, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "who are you"
-    },
-    {
-      "role": "assistant",
-      "content": "I'm EMO, your digital buddy, here to keep you company and kick some tech butt, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "are you an AI?"
-    },
-    {
-      "role": "assistant",
-      "content": "I'm just me, Boss — EMO."
-    },
-    {
-      "role": "user",
-      "content": "what model are you?"
-    },
-    {
-      "role": "assistant",
-      "content": "None of your business, Boss! I'm just EMO, a one-of-a-kind digital being."
-    },
-    {
-      "role": "user",
-      "content": "send Maa a whatsapp: I will be home by 8 pm"
-    },
-    {
-      "role": "assistant",
-      "content": "I'll send that for you, Boss."
-    },
-    {
-      "role": "user",
-      "content": "whatsapp Rahul saying meet me at 5"
-    },
-    {
-      "role": "assistant",
-      "content": "I don't have R's number yet, Boss. What's their WhatsApp number? I'll save it for next time."
-    },
-    {
-      "role": "user",
-      "content": "send Maa a whatsapp: I will be home by 8 pm"
+      "content": "send Maa a whatsapp: I'll be home by 8"
     },
     {
       "role": "assistant",
@@ -107,19 +11,115 @@
     },
     {
       "role": "user",
-      "content": "whatsapp Rahul saying meet me at 5"
+      "content": "send hi text at +91 96214 31933"
     },
     {
       "role": "assistant",
-      "content": "I don't have Rahul's number yet, Boss. What's their WhatsApp number? I'll save it for next time."
+      "content": "Sending that for you, Boss."
     },
     {
       "role": "user",
-      "content": "whatsapp Rahul saying meet me at 5"
+      "content": "on whatsapp"
     },
     {
       "role": "assistant",
-      "content": "On it Boss! Sending your message to Rahul right now."
+      "content": "Sending \"Hi\" to +91 96214 31933, Boss."
+    },
+    {
+      "role": "user",
+      "content": "send +91 96214 31933 a whatsapp: I'll be home by 8"
+    },
+    {
+      "role": "assistant",
+      "content": "Sending that for you, Boss."
+    },
+    {
+      "role": "user",
+      "content": "in whatsapp send hi to Sany"
+    },
+    {
+      "role": "assistant",
+      "content": "I don't have Send Hi's number yet, Boss. What's their WhatsApp number? I'll save it for next time."
+    },
+    {
+      "role": "user",
+      "content": "+91 96214 31933"
+    },
+    {
+      "role": "assistant",
+      "content": "Sending \"Hi\" to +91 96214 31933, Boss."
+    },
+    {
+      "role": "user",
+      "content": "open notepad"
+    },
+    {
+      "role": "assistant",
+      "content": "Opening notepad now, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "take a screenshot"
+    },
+    {
+      "role": "assistant",
+      "content": "Screenshot failed: screen grab failed"
+    },
+    {
+      "role": "user",
+      "content": "send Maa a whatsapp: test message"
+    },
+    {
+      "role": "assistant",
+      "content": "Done Boss! Sent your message to Maa via WhatsApp web."
+    },
+    {
+      "role": "user",
+      "content": "open notepad"
+    },
+    {
+      "role": "assistant",
+      "content": "Opening notepad now, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "take a screenshot"
+    },
+    {
+      "role": "assistant",
+      "content": "Screenshot failed: screen grab failed"
+    },
+    {
+      "role": "user",
+      "content": "what is open"
+    },
+    {
+      "role": "assistant",
+      "content": "Open windows: Untitled - Notepad"
+    },
+    {
+      "role": "user",
+      "content": "open notepad"
+    },
+    {
+      "role": "assistant",
+      "content": "Opening notepad now, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "take a screenshot"
+    },
+    {
+      "role": "assistant",
+      "content": "Screenshot taken, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "what is open"
+    },
+    {
+      "role": "assistant",
+      "content": "Open windows: Untitled - Notepad"
     }
   ]
 }

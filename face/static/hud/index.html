@@ -101,6 +101,30 @@
   .vector-icon-btn.active { background: var(--cream); color: #000; border-color: var(--cream); }
   .vector-icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
+  /* ---------- MODE BADGE ---------- */
+  #mode-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(0,243,255,0.1);
+    border: 1px solid rgba(0,243,255,0.25);
+    color: var(--cyan);
+    display: none;
+  }
+  #mode-badge.laptop { display: inline-block; }
+
+  /* ---------- SCREENSHOT IN BUBBLE ---------- */
+  #screenshot-preview {
+    display: none;
+    max-width: 100%;
+    border-radius: 10px;
+    margin-top: 10px;
+    border: 1px solid #333;
+    cursor: pointer;
+  }
+
   /* ---------- SPEECH BUBBLE DIALOG ---------- */
   #speech-bubble {
     width: min(520px, 94vw);
@@ -315,6 +339,12 @@
   </div>
 
   <div class="icon-controls-group">
+    <!-- MODE BADGE: shown on laptop -->
+    <span id="mode-badge" title="Running in Laptop Mode">🖥 LAPTOP</span>
+    <!-- SCREENSHOT BUTTON (laptop only) -->
+    <button id="screenshot-btn" class="vector-icon-btn" title="Take Screenshot" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 13a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+    </button>
     <!-- VECTOR ICON: CAMERA -->
     <button id="cam-toggle-btn" class="vector-icon-btn" title="Toggle Camera & Vision">
       <svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 100 6 3 3 0 000-6zm-7-3h3.17L9.41 4.41A2 2 0 0110.83 4h2.34c.53 0 1.04.21 1.42.59L15.83 6H19a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm7 11a5 5 0 100-10 5 5 0 000 10z"/></svg>
@@ -334,6 +364,7 @@
 <!-- SPEECH BUBBLE DIALOG -->
 <div id="speech-bubble">
   <div id="bubble-text">Hi! I'm EMO, your companion.</div>
+  <img id="screenshot-preview" alt="Screenshot" title="Click to enlarge" onclick="this.style.display='none'" />
 </div>
 
 <!-- ENLARGED EMO STAGE -->
@@ -787,6 +818,17 @@
           });
         }
       }
+      // ── Handle screenshot response ───────────────────────────────
+      var screenshotEl = document.getElementById('screenshot-preview');
+      if (data.screenshot_b64 && screenshotEl) {
+        screenshotEl.src = 'data:image/png;base64,' + data.screenshot_b64;
+        screenshotEl.style.display = 'block';
+      }
+      // ── Handle windows list ─────────────────────────────────────
+      if (data.windows && data.windows.length) {
+        var winText = "Open apps: " + data.windows.slice(0, 8).join(', ');
+        bubbleText.textContent = winText;
+      }
       // ── End action handling ──────────────────────────────────────
 
       speakText(reply, function() {
@@ -806,6 +848,41 @@
     });
 
   }
+
+  /* ---------- LAPTOP MODE INIT ---------- */
+  (function initLaptopMode() {
+    var isAndroid = /Android/i.test(navigator.userAgent);
+    if (!isAndroid) {
+      // Show laptop mode badge
+      var badge = document.getElementById('mode-badge');
+      if (badge) badge.classList.add('laptop');
+
+      // Show screenshot button
+      var ssBtn = document.getElementById('screenshot-btn');
+      if (ssBtn) {
+        ssBtn.style.display = 'flex';
+        ssBtn.addEventListener('click', function() {
+          var bubbleText = document.getElementById('bubble-text');
+          var screenshotEl = document.getElementById('screenshot-preview');
+          bubbleText.textContent = "Taking screenshot...";
+          fetch('/api/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'take_screenshot' })
+          }).then(function(r){ return r.json(); }).then(function(data) {
+            if (data.screenshot_b64 && screenshotEl) {
+              screenshotEl.src = 'data:image/png;base64,' + data.screenshot_b64;
+              screenshotEl.style.display = 'block';
+              bubbleText.textContent = "Here's what's on your screen, Boss!";
+              speakText("Here's what's on your screen, Boss!");
+            }
+          }).catch(function() {
+            bubbleText.textContent = "Screenshot failed, Boss!";
+          });
+        });
+      }
+    }
+  })();
 
   /* ---------- CONTINUOUS LOOP WEB AUDIO MIC ---------- */
   var recognition = null;

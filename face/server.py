@@ -580,32 +580,67 @@ class Handler(BaseHTTPRequestHandler):
 
             try:
                 from brain import api_llm, memory, web_search, google_workspace, whatsapp
+                from brain import computer_control
                 import re as _re
+
+                # ── Computer control commands — handle before LLM ──────────
+                if computer_control.is_control_command(user_msg):
+                    print(f"[chat.api] Computer control command: '{user_msg}'")
+                    result = computer_control.parse_and_execute(user_msg)
+                    reply = result.get("reply", "Done, Boss!")
+                    memory.add_exchange(user_msg, reply)
+                    response = {"ok": True, "reply": reply, "action_type": result.get("action_type")}
+                    # Attach screenshot data if present
+                    if result.get("image_b64"):
+                        response["screenshot_b64"] = result["image_b64"]
+                    if result.get("windows"):
+                        response["windows"] = result["windows"]
+                    self._send_json(response)
+                    return
 
                 # ── WhatsApp send command — handle before LLM ──────────────
                 if whatsapp.is_whatsapp_command(user_msg):
                     print(f"[chat.api] WhatsApp command detected: '{user_msg}'")
                     result = whatsapp.parse_command(user_msg)
                     if "error" not in result:
-                        if result["phone"]:
-                            # Contact found — tell Android to send
-                            wa_url = whatsapp.build_whatsapp_url(result["phone"], result["message"])
-                            reply = f"On it Boss! Sending your message to {result['contact']} right now."
+                        contact = result["contact"]
+                        message = result["message"]
+                        phone = result["phone"]
+
+                        # Detect if request is from laptop browser vs Android
+                        ua = self.headers.get("User-Agent", "")
+                        is_android = "Android" in ua
+
+                        if not is_android:
+                            # ── Laptop mode: run automation directly ──
+                            wa_result = computer_control.whatsapp_send_laptop(contact, message)
+                            if wa_result["ok"]:
+                                reply = f"Done Boss! Sent your message to {contact} via WhatsApp {wa_result.get('method', '')}."
+                            else:
+                                reply = f"Couldn't send to {contact}: {wa_result.get('error', 'unknown error')}."
+                            memory.add_exchange(user_msg, reply)
+                            self._send_json({"ok": wa_result["ok"], "reply": reply,
+                                             "action_type": "whatsapp_send_laptop", **wa_result})
+                            return
+
+                        # ── Android mode: return action for the bridge ──
+                        if phone:
+                            wa_url = whatsapp.build_whatsapp_url(phone, message)
+                            reply = f"On it Boss! Sending your message to {contact} right now."
                             memory.add_exchange(user_msg, reply)
                             self._send_json({
                                 "ok": True,
                                 "reply": reply,
                                 "action": {
                                     "type": "whatsapp_send",
-                                    "contact": result["contact"],
-                                    "phone": result["phone"],
-                                    "message": result["message"],
+                                    "contact": contact,
+                                    "phone": phone,
+                                    "message": message,
                                     "url": wa_url,
                                 }
                             })
                         else:
-                            # Contact not found — ask Boss for the number
-                            reply = (f"I don't have {result['contact']}'s number yet, Boss. "
+                            reply = (f"I don't have {contact}'s number yet, Boss. "
                                      f"What's their WhatsApp number? I'll save it for next time.")
                             memory.add_exchange(user_msg, reply)
                             self._send_json({
@@ -613,8 +648,8 @@ class Handler(BaseHTTPRequestHandler):
                                 "reply": reply,
                                 "action": {
                                     "type": "whatsapp_need_number",
-                                    "contact": result["contact"],
-                                    "message": result["message"],
+                                    "contact": contact,
+                                    "message": message,
                                 }
                             })
                         return
@@ -664,6 +699,46 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"[chat.api] Error: {e}")
                 self._send_json({"ok": False, "reply": "I'm right here with you, Boss!"})
+            return
+
+        # ── Computer Control API ──────────────────────────────────────────────
+        # POST /api/control — execute a direct control action
+        # Body: {"action": "open_app", "params": {"name": "spotify"}}
+        if path == "/api/control":
+            body = self._read_json()
+            action = (body or {}).get("action", "").strip()
+            params = (body or {}).get("params", {})
+            if not action:
+                self._send_json({"ok": False, "error": "missing action"}, code=400)
+                return
+            try:
+                from brain import computer_control
+                dispatch = {
+                    "open_app":       lambda: computer_control.open_app(params.get("name", "")),
+                    "focus_window":   lambda: computer_control.focus_window(params.get("title", "")),
+                    "close_window":   lambda: computer_control.close_window(params.get("title", "")),
+                    "minimize_window":lambda: computer_control.minimize_window(params.get("title", "")),
+                    "type_text":      lambda: computer_control.type_text(params.get("text", "")),
+                    "press_key":      lambda: computer_control.press_key(params.get("key", "")),
+                    "click":          lambda: computer_control.click(params.get("x", 0), params.get("y", 0)),
+                    "right_click":    lambda: computer_control.right_click(params.get("x", 0), params.get("y", 0)),
+                    "double_click":   lambda: computer_control.double_click(params.get("x", 0), params.get("y", 0)),
+                    "scroll":         lambda: computer_control.scroll(params.get("direction", "down"), params.get("amount", 3)),
+                    "take_screenshot":lambda: computer_control.take_screenshot(),
+                    "list_windows":   lambda: {"ok": True, "windows": computer_control.list_open_windows()},
+                    "get_screen_size":lambda: computer_control.get_screen_size(),
+                    "whatsapp_send":  lambda: computer_control.whatsapp_send_laptop(
+                                          params.get("contact", ""), params.get("message", "")),
+                }
+                fn = dispatch.get(action)
+                if not fn:
+                    self._send_json({"ok": False, "error": f"Unknown action: {action}"}, code=400)
+                    return
+                result = fn()
+                self._send_json({"ok": result.get("ok", True), **result})
+            except Exception as e:
+                print(f"[control.api] Error in '{action}': {e}")
+                self._send_json({"ok": False, "error": str(e)}, code=500)
             return
 
         # ── WhatsApp Contacts API ─────────────────────────────────────────────
