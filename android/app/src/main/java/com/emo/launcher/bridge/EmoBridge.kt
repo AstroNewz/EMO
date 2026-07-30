@@ -16,6 +16,7 @@ import android.webkit.JavascriptInterface
 import android.widget.Toast
 import com.emo.launcher.LauncherActivity
 import com.emo.launcher.overlay.TermuxPopupManager
+import com.emo.launcher.services.WhatsAppAutomation
 import com.emo.launcher.util.SystemInfo
 import org.json.JSONArray
 import org.json.JSONObject
@@ -479,4 +480,83 @@ class EmoBridge(private val activity: LauncherActivity) {
             Log.e(TAG, "openSettings failed: $page", e)
         }
     }
+
+    // =====================================================================
+    // 6. WHATSAPP MESSAGING
+    // =====================================================================
+
+    /**
+     * Open WhatsApp to a specific phone number with a pre-filled message.
+     *
+     * The EmoAccessibilityService will auto-tap Send once WhatsApp's
+     * chat screen loads (if the Accessibility Service is enabled).
+     *
+     * @param phone   E.164 number digits only, e.g. "919876543210"
+     * @param message The message text to pre-fill
+     * @param contact Display name for feedback/logging
+     * @return true if WhatsApp is installed and the intent fired, false otherwise
+     */
+    @JavascriptInterface
+    fun sendWhatsApp(phone: String, message: String, contact: String): Boolean {
+        return try {
+            if (!isAppInstalled("com.whatsapp")) {
+                Log.w(TAG, "WhatsApp is not installed on this device.")
+                return false
+            }
+
+            // Register auto-send intent BEFORE firing the intent
+            // (Accessibility Service checks this the moment WhatsApp appears)
+            WhatsAppAutomation.register(message, contact)
+
+            val cleanPhone = phone.replace(Regex("[^\\d]"), "")
+            val uri = android.net.Uri.parse(
+                "https://api.whatsapp.com/send?phone=$cleanPhone&text=${
+                    android.net.Uri.encode(message)
+                }"
+            )
+            val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+                setPackage("com.whatsapp")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Log.i(TAG, "WhatsApp intent fired for $contact ($cleanPhone)")
+            true
+        } catch (e: Exception) {
+            Log.e(TAG, "sendWhatsApp failed", e)
+            WhatsAppAutomation.clear()
+            false
+        }
+    }
+
+    /**
+     * Save or update a contact in EMO's contacts.json via the backend API.
+     * Fires a POST /api/contacts to the running EMO server.
+     *
+     * @param name  Contact display name
+     * @param phone E.164 phone number, e.g. "+919876543210"
+     */
+    @JavascriptInterface
+    fun saveContact(name: String, phone: String) {
+        Thread {
+            try {
+                val url = java.net.URL("http://127.0.0.1:3000/api/contacts")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                val payload = org.json.JSONObject().apply {
+                    put("name", name)
+                    put("phone", phone)
+                }.toString().toByteArray(Charsets.UTF_8)
+                conn.outputStream.write(payload)
+                conn.outputStream.close()
+                val code = conn.responseCode
+                Log.i(TAG, "saveContact($name) → HTTP $code")
+                conn.disconnect()
+            } catch (e: Exception) {
+                Log.e(TAG, "saveContact failed", e)
+            }
+        }.start()
+    }
 }
+

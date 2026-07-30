@@ -419,6 +419,15 @@ class Handler(BaseHTTPRequestHandler):
             })
             return
 
+        # GET /api/contacts — list all saved WhatsApp contacts
+        if path == "/api/contacts":
+            try:
+                from brain import whatsapp
+                self._send_json({"ok": True, "contacts": whatsapp.get_contacts()})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
         if path == "/api/telemetry":
             tele = get_telemetry()
             self._send_json({
@@ -570,7 +579,45 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             try:
-                from brain import api_llm, memory, web_search, google_workspace
+                from brain import api_llm, memory, web_search, google_workspace, whatsapp
+                import re as _re
+
+                # ── WhatsApp send command — handle before LLM ──────────────
+                if whatsapp.is_whatsapp_command(user_msg):
+                    print(f"[chat.api] WhatsApp command detected: '{user_msg}'")
+                    result = whatsapp.parse_command(user_msg)
+                    if "error" not in result:
+                        if result["phone"]:
+                            # Contact found — tell Android to send
+                            wa_url = whatsapp.build_whatsapp_url(result["phone"], result["message"])
+                            reply = f"On it Boss! Sending your message to {result['contact']} right now."
+                            memory.add_exchange(user_msg, reply)
+                            self._send_json({
+                                "ok": True,
+                                "reply": reply,
+                                "action": {
+                                    "type": "whatsapp_send",
+                                    "contact": result["contact"],
+                                    "phone": result["phone"],
+                                    "message": result["message"],
+                                    "url": wa_url,
+                                }
+                            })
+                        else:
+                            # Contact not found — ask Boss for the number
+                            reply = (f"I don't have {result['contact']}'s number yet, Boss. "
+                                     f"What's their WhatsApp number? I'll save it for next time.")
+                            memory.add_exchange(user_msg, reply)
+                            self._send_json({
+                                "ok": True,
+                                "reply": reply,
+                                "action": {
+                                    "type": "whatsapp_need_number",
+                                    "contact": result["contact"],
+                                    "message": result["message"],
+                                }
+                            })
+                        return
 
                 # ── Calendar scheduling — handle directly, no LLM needed ──
                 if google_workspace.is_schedule_request(user_msg):
@@ -579,7 +626,6 @@ class Handler(BaseHTTPRequestHandler):
                     memory.add_exchange(user_msg, result)
                     self._send_json({"ok": True, "reply": result})
                     return
-
 
                 context_addons = ""
                 if web_search.is_search_needed(user_msg):
@@ -602,13 +648,11 @@ class Handler(BaseHTTPRequestHandler):
                 from core.orchestrator import _emo_system_prefix
                 system = _emo_system_prefix()
 
-
                 # Fetch full conversation history from JSON memory
                 history = memory.get_history_for_llm()
                 prompt_msg = user_msg + context_addons if context_addons else user_msg
                 history.append({"role": "user", "content": prompt_msg})
 
-                import re as _re
                 reply = api_llm.generate(system, history)
                 reply = _re.sub(r"\[EMOTION:\s*[^\]]+\]", "", reply, flags=_re.IGNORECASE).strip()
 
@@ -620,6 +664,40 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"[chat.api] Error: {e}")
                 self._send_json({"ok": False, "reply": "I'm right here with you, Boss!"})
+            return
+
+        # ── WhatsApp Contacts API ─────────────────────────────────────────────
+        # GET /api/contacts — list all saved contacts
+        if path == "/api/contacts" and self.command == "GET":
+            try:
+                from brain import whatsapp
+                self._send_json({"ok": True, "contacts": whatsapp.get_contacts()})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
+        # POST /api/contacts — add or update a contact {"name": "...", "phone": "..."}
+        # DELETE /api/contacts — remove a contact {"name": "..."}
+        if path == "/api/contacts" and self.command in ("POST", "DELETE"):
+            body = self._read_json()
+            name = (body or {}).get("name", "").strip()
+            if not name:
+                self._send_json({"ok": False, "error": "missing name"}, code=400)
+                return
+            try:
+                from brain import whatsapp
+                if self.command == "DELETE":
+                    ok = whatsapp.delete_contact(name)
+                    self._send_json({"ok": ok})
+                else:
+                    phone = (body or {}).get("phone", "").strip()
+                    if not phone:
+                        self._send_json({"ok": False, "error": "missing phone"}, code=400)
+                        return
+                    ok = whatsapp.upsert_contact(name, phone)
+                    self._send_json({"ok": ok, "contacts": whatsapp.get_contacts()})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
             return
 
         # Google Workspace Status API

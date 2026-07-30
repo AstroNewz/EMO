@@ -744,6 +744,51 @@
       var replyEmo = inferEmotion(reply);
       setEmotion(replyEmo);
 
+      // ── Handle EMO action payloads ──────────────────────────────
+      var action = data.action;
+      if (action && action.type === "whatsapp_send") {
+        // Tell Android bridge to fire the WhatsApp intent
+        if (window.Android && window.Android.sendWhatsApp) {
+          var sent = window.Android.sendWhatsApp(
+            action.phone,
+            action.message,
+            action.contact
+          );
+          if (!sent) {
+            bubbleText.textContent = "WhatsApp doesn't seem to be installed, Boss!";
+          }
+        } else {
+          // Browser fallback: open the WhatsApp web link
+          window.open(action.url, "_blank");
+        }
+      }
+
+      if (action && action.type === "whatsapp_need_number") {
+        // Prompt Boss to provide the number, then save it
+        var num = prompt(
+          "What's " + action.contact + "'s WhatsApp number? (e.g. +919876543210)"
+        );
+        if (num && num.trim()) {
+          // Save contact via backend API
+          fetch("/api/contacts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: action.contact, phone: num.trim() })
+          }).then(function(r){ return r.json(); }).then(function(res){
+            if (res.ok) {
+              // Retry sending now that we have the number
+              var cleanPhone = num.trim().replace(/[^\d]/g, "");
+              if (window.Android && window.Android.sendWhatsApp) {
+                window.Android.sendWhatsApp(cleanPhone, action.message, action.contact);
+              }
+              bubbleText.textContent = "Saved " + action.contact + " and sending now!";
+              speakText("Saved " + action.contact + " and sending now!");
+            }
+          });
+        }
+      }
+      // ── End action handling ──────────────────────────────────────
+
       speakText(reply, function() {
         if (autoListenEnabled) {
           setTimeout(startListening, 300);
@@ -759,6 +804,7 @@
         }
       });
     });
+
   }
 
   /* ---------- CONTINUOUS LOOP WEB AUDIO MIC ---------- */
