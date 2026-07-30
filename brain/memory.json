@@ -3,79 +3,71 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "send Maa a whatsapp: I'll be home by 8"
+      "content": "hi emo"
     },
     {
       "role": "assistant",
-      "content": "On it Boss! Sending your message to Maa right now."
+      "content": "Hey Boss!"
     },
     {
       "role": "user",
-      "content": "send hi text at +91 96214 31933"
+      "content": "EMO open Notepad"
     },
     {
       "role": "assistant",
-      "content": "Sending that for you, Boss."
+      "content": "Notepad's open, Boss!"
     },
     {
       "role": "user",
-      "content": "on whatsapp"
+      "content": "EMO open VS Code"
     },
     {
       "role": "assistant",
-      "content": "Sending \"Hi\" to +91 96214 31933, Boss."
+      "content": "VS Code is live, Boss!"
     },
     {
       "role": "user",
-      "content": "send +91 96214 31933 a whatsapp: I'll be home by 8"
+      "content": "EMO what is open"
     },
     {
       "role": "assistant",
-      "content": "Sending that for you, Boss."
+      "content": "Notepad and VS Code are open, Boss!"
     },
     {
       "role": "user",
-      "content": "in whatsapp send hi to Sany"
+      "content": "EMO bring up Notepad"
     },
     {
       "role": "assistant",
-      "content": "I don't have Send Hi's number yet, Boss. What's their WhatsApp number? I'll save it for next time."
+      "content": "Notepad's front and center, Boss!"
     },
     {
       "role": "user",
-      "content": "+91 96214 31933"
+      "content": "emo press control and tab"
     },
     {
       "role": "assistant",
-      "content": "Sending \"Hi\" to +91 96214 31933, Boss."
+      "content": "Switched to VS Code, Boss!"
     },
     {
       "role": "user",
-      "content": "open notepad"
+      "content": "emo take screenshot"
     },
     {
       "role": "assistant",
-      "content": "Opening notepad now, Boss!"
+      "content": "Screenshot taken, Boss!"
     },
     {
       "role": "user",
-      "content": "take a screenshot"
+      "content": "EMO send Sanu a whatsapp: I'll be home by 8"
     },
     {
       "role": "assistant",
-      "content": "Screenshot failed: screen grab failed"
+      "content": "Couldn't send to Sanu: No phone number saved for 'Sanu'. Add it via EMO: 'save Sanu as +91...'."
     },
     {
       "role": "user",
-      "content": "send Maa a whatsapp: test message"
-    },
-    {
-      "role": "assistant",
-      "content": "Done Boss! Sent your message to Maa via WhatsApp web."
-    },
-    {
-      "role": "user",
-      "content": "open notepad"
+      "content": "emo open notepad"
     },
     {
       "role": "assistant",
@@ -83,31 +75,23 @@
     },
     {
       "role": "user",
-      "content": "take a screenshot"
+      "content": "hey emo launch calc"
     },
     {
       "role": "assistant",
-      "content": "Screenshot failed: screen grab failed"
+      "content": "Opening calc now, Boss!"
     },
     {
       "role": "user",
-      "content": "what is open"
+      "content": "can you open settings"
     },
     {
       "role": "assistant",
-      "content": "Open windows: Untitled - Notepad"
+      "content": "Opening settings now, Boss!"
     },
     {
       "role": "user",
-      "content": "open notepad"
-    },
-    {
-      "role": "assistant",
-      "content": "Opening notepad now, Boss!"
-    },
-    {
-      "role": "user",
-      "content": "take a screenshot"
+      "content": "please take a screenshot"
     },
     {
       "role": "assistant",
@@ -119,7 +103,23 @@
     },
     {
       "role": "assistant",
-      "content": "Open windows: Untitled - Notepad"
+      "content": "Open apps: Untitled - Notepad"
+    },
+    {
+      "role": "user",
+      "content": "emo type Hello EMO"
+    },
+    {
+      "role": "assistant",
+      "content": "Typed it, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "close calc"
+    },
+    {
+      "role": "assistant",
+      "content": "Closed CalculatorApp.exe, Boss!"
     }
   ]
 }

@@ -2,32 +2,33 @@
 brain/computer_control.py — EMO Computer Control Module (Windows)
 
 Gives EMO full control over the Windows laptop:
-- Open any installed app by name
-- List, focus, and close windows
+- Open any installed app by name (URI, PATH, Registry, Start Menu, Shell)
+- List, focus, close, and minimize windows with Win32 + psutil + PowerShell fallbacks
 - Click, type, scroll, press keyboard shortcuts
-- Take screenshots (returned as base64 PNG)
+- Take screenshots (returned as base64 PNG) via mss / pyautogui / PowerShell
 - WhatsApp Desktop / WhatsApp Web automation
 
-Dependencies: pyautogui, pygetwindow, psutil, pillow (PIL)
-Install: pip install pyautogui pygetwindow
+Dependencies: pyautogui, pygetwindow, psutil, pillow (PIL), mss
 """
 
 import os
 import re
 import sys
 import time
-import glob
 import base64
+import shutil
+import winreg
+import tempfile
 import subprocess
 import webbrowser
 from pathlib import Path
 from io import BytesIO
 
-# ── Lazy imports (installed separately) ────────────────────────────────────
+# ── Lazy imports ────────────────────────────────────────────────────────────
 def _get_pyautogui():
     try:
         import pyautogui
-        pyautogui.FAILSAFE = False  # Safe: EMO is the controller, not a user accident
+        pyautogui.FAILSAFE = False  # EMO controls mouse programmatically
         pyautogui.PAUSE = 0.03
         return pyautogui
     except ImportError:
@@ -40,7 +41,7 @@ def _get_gw():
     except ImportError:
         raise RuntimeError("pygetwindow not installed. Run: pip install pygetwindow")
 
-# ── Known app aliases ────────────────────────────────────────────────────────
+# ── App Aliases & URI Mappings ──────────────────────────────────────────────
 _APP_ALIASES = {
     # Browsers
     "chrome": "chrome.exe",
@@ -61,7 +62,7 @@ _APP_ALIASES = {
     "zoom": "Zoom.exe",
     "skype": "Skype.exe",
 
-    # Productivity
+    # Productivity & Built-ins
     "notepad": "notepad.exe",
     "notepad++": "notepad++.exe",
     "word": "WINWORD.EXE",
@@ -69,182 +70,157 @@ _APP_ALIASES = {
     "powerpoint": "POWERPNT.EXE",
     "outlook": "OUTLOOK.EXE",
     "onenote": "ONENOTE.EXE",
-    "calculator": "calc.exe",
-    "paint": "mspaint.exe",
+    "calc": "calculator:",
+    "calculator": "calculator:",
+    "paint": "ms-paint:",
+    "mspaint": "mspaint.exe",
+    "settings": "ms-settings:",
+    "photos": "ms-photos:",
+    "snipping tool": "SnippingTool.exe",
+    "snip": "SnippingTool.exe",
 
     # Dev tools
     "vscode": "Code.exe",
     "vs code": "Code.exe",
     "visual studio code": "Code.exe",
+    "code": "Code.exe",
     "pycharm": "pycharm64.exe",
     "android studio": "studio64.exe",
     "terminal": "wt.exe",
     "windows terminal": "wt.exe",
     "cmd": "cmd.exe",
+    "command prompt": "cmd.exe",
     "powershell": "powershell.exe",
     "git bash": "git-bash.exe",
 
-    # Media & Entertainment
-    "spotify": "Spotify.exe",
+    # Media & Games
+    "spotify": "spotify:",
     "vlc": "vlc.exe",
-    "media player": "wmplayer.exe",
-    "photos": "ms-photos:",
-    "movies": "mswindowsvideo:",
-
-    # System
+    "steam": "Steam.exe",
+    "epic games": "EpicGamesLauncher.exe",
     "file explorer": "explorer.exe",
     "explorer": "explorer.exe",
     "task manager": "taskmgr.exe",
     "control panel": "control.exe",
-    "settings": "ms-settings:",
-    "snipping tool": "SnippingTool.exe",
-    "snip": "SnippingTool.exe",
-
-    # Games & Social
-    "steam": "Steam.exe",
-    "epic games": "EpicGamesLauncher.exe",
-    "instagram": "instagram:",
-    "twitter": "twitter:",
-    "x": "twitter:",
 }
 
-# Start Menu shortcut search paths
 _START_MENU_PATHS = [
     Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows" / "Start Menu" / "Programs",
     Path("C:/ProgramData/Microsoft/Windows/Start Menu/Programs"),
 ]
 
-# Common install directories
-_COMMON_DIRS = [
-    Path("C:/Program Files"),
-    Path("C:/Program Files (x86)"),
-    Path(os.environ.get("LOCALAPPDATA", "")),
-    Path(os.environ.get("APPDATA", "")),
-]
+# Common Windows system GUI apps to include in window listings
+_COMMON_GUI_EXES = {
+    "chrome.exe", "firefox.exe", "msedge.exe", "brave.exe", "opera.exe",
+    "notepad.exe", "notepad++.exe", "code.exe", "spotify.exe", "whatsapp.exe",
+    "telegram.exe", "discord.exe", "slack.exe", "teams.exe", "zoom.exe",
+    "calculatorApp.exe", "calc.exe", "winword.exe", "excel.exe", "powerpnt.exe",
+    "explorer.exe", "taskmgr.exe", "cmd.exe", "powershell.exe", "wt.exe",
+    "vlc.exe", "steam.exe", "mspaint.exe"
+}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# APP LAUNCHER
+# APP LAUNCHER — Multi-strategy execution
 # ══════════════════════════════════════════════════════════════════════════════
 
 def _find_exe_in_registry(name: str) -> str | None:
     """Look up exe path in Windows registry App Paths."""
-    try:
-        import winreg
-        for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
-            try:
-                key = winreg.OpenKey(
-                    root,
-                    rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{name}",
-                )
-                path, _ = winreg.QueryValueEx(key, "")
-                if path and Path(path).exists():
-                    return str(path)
-            except OSError:
-                pass
-    except ImportError:
-        pass
+    target = name if name.endswith(".exe") else f"{name}.exe"
+    for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+        try:
+            key = winreg.OpenKey(
+                root,
+                rf"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{target}",
+            )
+            path, _ = winreg.QueryValueEx(key, "")
+            if path and Path(path).exists():
+                return str(path)
+        except OSError:
+            pass
     return None
 
 
 def _find_exe_in_start_menu(app_name: str) -> str | None:
     """Search Start Menu .lnk files for a matching app."""
-    low = app_name.lower().replace(" ", "*")
+    low = app_name.lower().strip()
     for base in _START_MENU_PATHS:
         if not base.exists():
             continue
-        matches = list(base.rglob(f"*{low}*.lnk"))
-        if not matches:
-            matches = list(base.rglob(f"*{app_name.lower()}*.lnk"))
-        if matches:
-            return str(matches[0])
-    return None
-
-
-def _find_exe_in_common_dirs(exe_name: str) -> str | None:
-    """Recursively search common install dirs for the exe."""
-    for base in _COMMON_DIRS:
-        if not base.exists():
-            continue
-        found = list(base.rglob(exe_name))
-        if found:
-            return str(found[0])
+        for lnk in base.rglob("*.lnk"):
+            if low in lnk.stem.lower():
+                return str(lnk)
     return None
 
 
 def open_app(name: str) -> dict:
     """
     Open any application by name on Windows.
-    Returns {"ok": True, "launched": name} or {"ok": False, "error": "..."}
+    Returns {"ok": True, "launched": name, "method": ...} or {"ok": False, "error": "..."}
     """
-    low = name.strip().lower()
+    raw_name = name.strip()
+    low = raw_name.lower()
+    # Strip filler words ("the", "app", "application")
+    low = re.sub(r"^(?:the\s+)?", "", low).strip()
+    low = re.sub(r"\s+(?:app|application)$", "", low).strip()
 
-    # 1. Check aliases first
-    exe = _APP_ALIASES.get(low)
-    if not exe:
-        # Try partial alias match
-        for alias, path in _APP_ALIASES.items():
-            if low in alias or alias in low:
-                exe = path
-                break
+    # 1. Check known aliases
+    target = _APP_ALIASES.get(low, low)
 
-    # 2. If alias is a URI protocol (ms-settings:, ms-photos:, etc.)
-    if exe and exe.endswith(":"):
+    # 2. URI Protocol launch (ms-settings:, spotify:, calculator:, etc.)
+    if target.endswith(":"):
         try:
-            os.startfile(exe)
-            return {"ok": True, "launched": name, "method": "uri"}
-        except Exception as e:
-            return {"ok": False, "error": str(e)}
-
-    # 3. Try running the exe directly (it may be on PATH)
-    target = exe or (name if name.endswith(".exe") else f"{name}.exe")
-    try:
-        subprocess.Popen(
-            target,
-            shell=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP
-            if sys.platform == "win32" else 0,
-        )
-        time.sleep(0.5)
-        return {"ok": True, "launched": name, "method": "shell"}
-    except Exception:
-        pass
-
-    # 4. Registry lookup
-    reg_path = _find_exe_in_registry(target)
-    if reg_path:
-        try:
-            subprocess.Popen([reg_path], shell=False)
-            return {"ok": True, "launched": name, "method": "registry"}
+            os.startfile(target)
+            return {"ok": True, "launched": raw_name, "method": "uri"}
         except Exception:
             pass
 
-    # 5. Start Menu shortcut
+    # 3. Check PATH via shutil.which
+    exe_path = shutil.which(target) or shutil.which(target + ".exe")
+    if exe_path:
+        try:
+            os.startfile(exe_path)
+            return {"ok": True, "launched": raw_name, "method": "path"}
+        except Exception:
+            pass
+
+    # 4. Registry App Paths lookup
+    reg_path = _find_exe_in_registry(target)
+    if reg_path:
+        try:
+            os.startfile(reg_path)
+            return {"ok": True, "launched": raw_name, "method": "registry"}
+        except Exception:
+            pass
+
+    # 5. Start Menu shortcut (.lnk)
     lnk = _find_exe_in_start_menu(low)
     if lnk:
         try:
             os.startfile(lnk)
-            return {"ok": True, "launched": name, "method": "start_menu"}
+            return {"ok": True, "launched": raw_name, "method": "start_menu"}
         except Exception:
             pass
 
-    # 6. Scan common directories
-    exe_in_dirs = _find_exe_in_common_dirs(target)
-    if exe_in_dirs:
-        try:
-            subprocess.Popen([exe_in_dirs])
-            return {"ok": True, "launched": name, "method": "filesystem"}
-        except Exception:
-            pass
-
-    # 7. Last resort: os.startfile with name
+    # 6. Shell start fallback via cmd.exe /c start "" "target"
     try:
-        os.startfile(name)
-        return {"ok": True, "launched": name, "method": "startfile"}
-    except Exception as e:
-        return {"ok": False, "error": f"Could not find or open '{name}': {e}"}
+        proc = subprocess.run(
+            ["cmd.exe", "/c", "start", "", target],
+            capture_output=True, timeout=5
+        )
+        if proc.returncode == 0:
+            return {"ok": True, "launched": raw_name, "method": "shell"}
+    except Exception:
+        pass
+
+    # 7. os.startfile fallback
+    try:
+        os.startfile(target)
+        return {"ok": True, "launched": raw_name, "method": "startfile"}
+    except Exception:
+        pass
+
+    return {"ok": False, "error": f"Could not find or open '{raw_name}' on your laptop."}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -252,60 +228,112 @@ def open_app(name: str) -> dict:
 # ══════════════════════════════════════════════════════════════════════════════
 
 def list_open_windows() -> list[str]:
-    """Return titles of all visible, non-empty windows."""
+    """Return titles of all open user applications."""
+    windows = []
+    # Method A: pygetwindow
     try:
         gw = _get_gw()
-        return [w.title for w in gw.getAllWindows() if w.title.strip()]
+        for w in gw.getAllWindows():
+            t = w.title.strip()
+            if t and t not in ("Program Manager", "Settings", "Windows Input Experience"):
+                windows.append(t)
     except Exception:
-        return []
+        pass
+
+    # Method B: psutil process fallback if pygetwindow returned empty
+    if not windows:
+        try:
+            import psutil
+            seen = set()
+            for p in psutil.process_iter(['name']):
+                name = (p.info['name'] or '').strip()
+                if name.lower() in _COMMON_GUI_EXES and name not in seen:
+                    seen.add(name)
+                    windows.append(name.replace('.exe', '').title())
+        except Exception:
+            pass
+
+    return windows
 
 
 def focus_window(title_fragment: str) -> dict:
-    """Bring a window to front by partial title match."""
+    """Bring a window to front by title or app name."""
+    target = title_fragment.strip().lower()
+
+    # Method A: pygetwindow + Win32 Alt key un-lock
     try:
         gw = _get_gw()
-        matches = gw.getWindowsWithTitle(title_fragment)
-        if not matches:
-            # Fuzzy: search all windows
-            low = title_fragment.lower()
-            matches = [w for w in gw.getAllWindows() if low in w.title.lower()]
-        if not matches:
-            return {"ok": False, "error": f"No window matching '{title_fragment}'"}
-        win = matches[0]
-        win.activate()
-        time.sleep(0.3)
-        return {"ok": True, "focused": win.title}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+        matches = [w for w in gw.getAllWindows() if target in w.title.lower()]
+        if matches:
+            win = matches[0]
+            try:
+                import ctypes
+                # Press Alt key to bypass Windows SetForegroundWindow restriction
+                ctypes.windll.user32.keybd_event(0x12, 0, 0, 0)
+                win.activate()
+                ctypes.windll.user32.keybd_event(0x12, 0, 2, 0)
+            except Exception:
+                win.activate()
+            time.sleep(0.2)
+            return {"ok": True, "focused": win.title}
+    except Exception:
+        pass
+
+    # Method B: PowerShell AppActivate fallback
+    try:
+        ps_code = (
+            f"$w = Get-Process | Where-Object {{$_.MainWindowTitle -like '*{target}*' -or $_.ProcessName -like '*{target}*'}} | Select-Object -First 1; "
+            f"if ($w) {{ (New-Object -ComObject WScript.Shell).AppActivate($w.Id) }}"
+        )
+        proc = subprocess.run(["powershell", "-NoProfile", "-Command", ps_code], capture_output=True, timeout=5)
+        if proc.returncode == 0:
+            return {"ok": True, "focused": title_fragment}
+    except Exception:
+        pass
+
+    return {"ok": False, "error": f"No open window matching '{title_fragment}' found."}
 
 
 def close_window(title_fragment: str) -> dict:
-    """Close a window by partial title match."""
+    """Close a window by title match or process name."""
+    target = title_fragment.strip().lower()
+
+    # Method A: pygetwindow
     try:
         gw = _get_gw()
-        low = title_fragment.lower()
-        matches = [w for w in gw.getAllWindows() if low in w.title.lower()]
-        if not matches:
-            return {"ok": False, "error": f"No window matching '{title_fragment}'"}
-        win = matches[0]
-        win.close()
-        return {"ok": True, "closed": win.title}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
+        matches = [w for w in gw.getAllWindows() if target in w.title.lower()]
+        if matches:
+            matches[0].close()
+            return {"ok": True, "closed": matches[0].title}
+    except Exception:
+        pass
+
+    # Method B: psutil process kill
+    try:
+        import psutil
+        for p in psutil.process_iter(['name', 'pid']):
+            name = (p.info['name'] or '').lower()
+            if target in name or target in name.replace('.exe', ''):
+                p.kill()
+                return {"ok": True, "closed": p.info['name']}
+    except Exception:
+        pass
+
+    return {"ok": False, "error": f"Could not find window or process matching '{title_fragment}'."}
 
 
 def minimize_window(title_fragment: str) -> dict:
-    """Minimise a window."""
+    """Minimize a window by title."""
+    target = title_fragment.strip().lower()
     try:
         gw = _get_gw()
-        low = title_fragment.lower()
-        matches = [w for w in gw.getAllWindows() if low in w.title.lower()]
-        if not matches:
-            return {"ok": False, "error": f"No window matching '{title_fragment}'"}
-        matches[0].minimize()
-        return {"ok": True, "minimized": matches[0].title}
+        matches = [w for w in gw.getAllWindows() if target in w.title.lower()]
+        if matches:
+            matches[0].minimize()
+            return {"ok": True, "minimized": matches[0].title}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+    return {"ok": False, "error": f"No window matching '{title_fragment}' found."}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -346,41 +374,38 @@ def type_text(text: str, interval: float = 0.03) -> dict:
     """Type text into the currently focused window."""
     try:
         pag = _get_pyautogui()
-        time.sleep(0.2)
+        time.sleep(0.1)
         pag.typewrite(text, interval=interval)
         return {"ok": True, "typed": text}
-    except Exception as e:
+    except Exception:
         # Fallback: pyperclip paste
         try:
             import pyperclip
             pyperclip.copy(text)
+            pag = _get_pyautogui()
             pag.hotkey("ctrl", "v")
             return {"ok": True, "typed": text, "method": "clipboard"}
-        except Exception:
+        except Exception as e:
             return {"ok": False, "error": str(e)}
 
 
 def press_key(key: str) -> dict:
-    """
-    Press a key or key combination.
-    Examples: 'enter', 'escape', 'ctrl+s', 'ctrl+alt+del', 'win+d'
-    """
+    """Press a key or shortcut (enter, escape, ctrl+s, win+d, etc.)."""
     try:
         pag = _get_pyautogui()
-        # Normalise
-        key = key.strip().lower().replace(" ", "").replace("windows", "win")
-        if "+" in key:
-            keys = key.split("+")
+        clean_key = key.strip().lower().replace(" ", "").replace("windows", "win")
+        if "+" in clean_key:
+            keys = clean_key.split("+")
             pag.hotkey(*keys)
         else:
-            pag.press(key)
+            pag.press(clean_key)
         return {"ok": True, "pressed": key}
     except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
 def scroll(direction: str = "down", amount: int = 3) -> dict:
-    """Scroll in the given direction. direction: up/down/left/right."""
+    """Scroll mouse wheel in given direction."""
     try:
         pag = _get_pyautogui()
         low = direction.lower()
@@ -395,16 +420,6 @@ def scroll(direction: str = "down", amount: int = 3) -> dict:
         return {"ok": False, "error": str(e)}
 
 
-def move_mouse(x: int, y: int) -> dict:
-    """Move the mouse cursor to given coordinates."""
-    try:
-        pag = _get_pyautogui()
-        pag.moveTo(x, y, duration=0.2)
-        return {"ok": True, "moved_to": [x, y]}
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # SCREENSHOT
 # ══════════════════════════════════════════════════════════════════════════════
@@ -412,11 +427,8 @@ def move_mouse(x: int, y: int) -> dict:
 def take_screenshot() -> dict:
     """
     Take a full-screen screenshot.
-    Returns {"ok": True, "image_b64": "<base64 PNG>", "width": ..., "height": ...}
     Tries mss → pyautogui → PowerShell .NET CopyFromScreen.
     """
-    import tempfile
-
     # Method 1: mss
     try:
         import mss
@@ -443,7 +455,7 @@ def take_screenshot() -> dict:
     except Exception:
         pass
 
-    # Method 3: PowerShell CopyFromScreen (.NET) — works in non-interactive sessions
+    # Method 3: PowerShell CopyFromScreen (.NET)
     try:
         tmp = Path(tempfile.gettempdir()) / "emo_screenshot.png"
         ps_script = (
@@ -455,7 +467,7 @@ def take_screenshot() -> dict:
             r"$g.CopyFromScreen($s.Location, [System.Drawing.Point]::Empty, $s.Size); "
             rf"$bmp.Save('{str(tmp).replace(chr(92), '/')}', [System.Drawing.Imaging.ImageFormat]::Png);"
         )
-        result = subprocess.run(
+        subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps_script],
             capture_output=True, timeout=10
         )
@@ -466,10 +478,9 @@ def take_screenshot() -> dict:
             img.save(buf, format="PNG", optimize=True)
             b64 = base64.b64encode(buf.getvalue()).decode("ascii")
             tmp.unlink(missing_ok=True)
-            return {"ok": True, "image_b64": b64, "width": img.width, "height": img.height,
-                    "method": "powershell"}
+            return {"ok": True, "image_b64": b64, "width": img.width, "height": img.height, "method": "powershell"}
     except Exception as e3:
-        return {"ok": False, "error": f"All screenshot methods failed. Last: {e3}"}
+        return {"ok": False, "error": f"Screenshot failed: {e3}"}
 
     return {"ok": False, "error": "All screenshot methods failed."}
 
@@ -493,148 +504,133 @@ def _whatsapp_desktop_path() -> str | None:
     candidates = [
         Path(os.environ.get("LOCALAPPDATA", "")) / "WhatsApp" / "WhatsApp.exe",
         Path(os.environ.get("APPDATA", "")) / "WhatsApp" / "WhatsApp.exe",
-        Path("C:/Program Files/WindowsApps").glob("*WhatsApp*"),
     ]
     for c in candidates:
-        if isinstance(c, Path) and c.exists():
+        if c.exists():
             return str(c)
     return None
 
 
 def whatsapp_send_laptop(contact: str, message: str) -> dict:
-    """
-    Send a WhatsApp message on the laptop.
-    Strategy:
-      1. WhatsApp Desktop — if installed, open it, search contact, send.
-      2. WhatsApp Web — open in browser, instruct user to scan QR if needed.
-    Returns {"ok": True, "method": "desktop"|"web", ...}
-    """
+    """Send WhatsApp message via WhatsApp Desktop or WhatsApp Web."""
     pag = _get_pyautogui()
     wa_path = _whatsapp_desktop_path()
 
     if wa_path:
-        # ── WhatsApp Desktop ──
         try:
-            # Launch or focus WhatsApp
-            subprocess.Popen([wa_path])
-            time.sleep(3)  # wait for app to load
+            os.startfile(wa_path)
+            time.sleep(2.5)
+            focus_window("WhatsApp")
+            time.sleep(0.5)
 
-            # Focus WhatsApp window
-            result = focus_window("WhatsApp")
-            if not result["ok"]:
-                return {"ok": False, "error": "Could not focus WhatsApp Desktop"}
-
-            time.sleep(1)
-
-            # Press Ctrl+F to open search / new chat search
             pag.hotkey("ctrl", "f")
             time.sleep(0.5)
 
-            # Type the contact name
-            pag.typewrite(contact, interval=0.05)
-            time.sleep(1.5)
+            pag.typewrite(contact, interval=0.04)
+            time.sleep(1.2)
 
-            # Press Enter to open the first result
             pag.press("enter")
-            time.sleep(0.8)
+            time.sleep(0.6)
 
-            # Type the message
-            pag.typewrite(message, interval=0.04)
+            pag.typewrite(message, interval=0.03)
             time.sleep(0.3)
 
-            # Press Enter to send
             pag.press("enter")
-            time.sleep(0.5)
-
             return {"ok": True, "method": "desktop", "contact": contact, "message": message}
-        except Exception as e:
-            return {"ok": False, "method": "desktop", "error": str(e)}
+        except Exception:
+            pass
 
+    # WhatsApp Web fallback
+    from brain.whatsapp import lookup_phone, build_whatsapp_url
+    phone = lookup_phone(contact)
+    if phone:
+        url = build_whatsapp_url(phone, message)
+        webbrowser.open(url)
+        return {
+            "ok": True,
+            "method": "web",
+            "contact": contact,
+            "message": message,
+            "url": url,
+            "note": "Opened WhatsApp Web in browser.",
+        }
     else:
-        # ── WhatsApp Web fallback ──
-        from brain.whatsapp import lookup_phone, build_whatsapp_url
-        phone = lookup_phone(contact)
-        if phone:
-            url = build_whatsapp_url(phone, message)
-            webbrowser.open(url)
-            return {
-                "ok": True,
-                "method": "web",
-                "contact": contact,
-                "message": message,
-                "url": url,
-                "note": "WhatsApp Web opened in browser. Scan QR code if not already logged in.",
-            }
-        else:
-            return {
-                "ok": False,
-                "method": "web",
-                "error": f"No phone number saved for '{contact}'. Add it via EMO: 'save {contact} as +91...'",
-            }
+        return {
+            "ok": False,
+            "method": "web",
+            "error": f"No phone number saved for '{contact}'. Add it in EMO contacts.",
+        }
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# NLU — INTENT DETECTION
+# NLU — INTENT DETECTION & PARSER
 # ══════════════════════════════════════════════════════════════════════════════
 
-# Open / launch patterns
 _OPEN_RE = re.compile(
     r"^(?:open|launch|start|run|fire up|pull up|bring up|load)\s+(?P<app>.+)$",
     re.IGNORECASE,
 )
 
-# Focus / switch patterns
 _FOCUS_RE = re.compile(
     r"^(?:switch to|go to|focus|show|bring up|activate)\s+(?P<window>.+)$",
     re.IGNORECASE,
 )
 
-# Close patterns
 _CLOSE_RE = re.compile(
     r"^(?:close|quit|exit|kill|shut down)\s+(?P<window>.+)$",
     re.IGNORECASE,
 )
 
-# Type patterns
 _TYPE_RE = re.compile(
-    r"^(?:type|write|input|enter)\s+(?:the text\s+|this\s+|in\s+notepad[:\s]+)?(?P<text>.+)$",
+    r"^(?:type|write|input|enter)\s+(?:the text\s+|this\s+|in\s+\w+[:\s]+)?(?P<text>.+)$",
     re.IGNORECASE,
 )
 
-# Press key patterns
 _KEY_RE = re.compile(
     r"^(?:press|hit|tap|hold)\s+(?P<key>(?:ctrl|alt|shift|win|windows|cmd)[\+\w]*|\w+)$",
     re.IGNORECASE,
 )
 
-# Screenshot
 _SCREENSHOT_RE = re.compile(
     r"(?:take a screenshot|screenshot|screen grab|what(?:'s| is) on (?:my |the )?screen|capture screen)",
     re.IGNORECASE,
 )
 
-# Scroll
 _SCROLL_RE = re.compile(
     r"^(?:scroll)\s+(?P<direction>up|down|left|right)(?:\s+(?P<amount>\d+))?$",
     re.IGNORECASE,
 )
 
-# Minimise
 _MIN_RE = re.compile(
     r"^(?:minimise|minimize|hide)\s+(?P<window>.+)$",
     re.IGNORECASE,
 )
 
-# List windows
 _LIST_WIN_RE = re.compile(
-    r"^(?:what(?:'s| is) open|list (?:open )?(?:apps|windows)|show (?:open )?windows)$",
+    r"(?:what(?:'s| is) open|list (?:open )?(?:apps|windows)|show (?:open )?windows|open windows)",
     re.IGNORECASE,
 )
 
 
+def clean_command(text: str) -> str:
+    """Strip leading EMO trigger words and trailing filler words."""
+    t = text.strip()
+    # Strip leading trigger words ("hey emo", "can you open", "please", etc.)
+    t = re.sub(
+        r"^(?:hey|hi|hello|ok|okay)?\s*(?:emo)?\s*(?:please|can you|could you|would you|i want you to|help me|kindly)?\s*",
+        "", t, flags=re.IGNORECASE
+    ).strip()
+    # Strip trailing filler ("please", "boss", "thanks")
+    t = re.sub(
+        r"\s*(?:please|emo|boss|thanks|thank you)?$",
+        "", t, flags=re.IGNORECASE
+    ).strip()
+    return t
+
+
 def is_control_command(text: str) -> bool:
     """Return True if text is a computer control command."""
-    t = text.strip()
+    t = clean_command(text)
     return bool(
         _OPEN_RE.match(t)
         or _FOCUS_RE.match(t)
@@ -644,67 +640,67 @@ def is_control_command(text: str) -> bool:
         or _SCREENSHOT_RE.search(t)
         or _SCROLL_RE.match(t)
         or _MIN_RE.match(t)
-        or _LIST_WIN_RE.match(t)
+        or _LIST_WIN_RE.search(t)
     )
 
 
 def parse_and_execute(text: str) -> dict:
     """
-    Parse a control command from natural language and execute it.
+    Parse a control command from natural language and execute it natively on Windows.
     Returns a result dict with at least {"ok": bool, "reply": str, ...}
     """
-    t = text.strip()
+    t = clean_command(text)
 
-    # Screenshot
+    # 1. Screenshot
     if _SCREENSHOT_RE.search(t):
         result = take_screenshot()
         if result["ok"]:
             return {**result, "reply": "Screenshot taken, Boss!", "action_type": "screenshot"}
         return {**result, "reply": f"Screenshot failed: {result.get('error')}"}
 
-    # List open windows
-    if _LIST_WIN_RE.match(t):
+    # 2. List open windows
+    if _LIST_WIN_RE.search(t):
         wins = list_open_windows()
-        reply = "Open windows: " + ", ".join(wins[:10]) if wins else "No windows open."
+        reply = "Open apps: " + ", ".join(wins[:10]) if wins else "No open apps found."
         return {"ok": True, "windows": wins, "reply": reply, "action_type": "list_windows"}
 
-    # Open app
+    # 3. Open app
     m = _OPEN_RE.match(t)
     if m:
         app = m.group("app").strip()
         result = open_app(app)
         if result["ok"]:
             return {**result, "reply": f"Opening {app} now, Boss!", "action_type": "open_app"}
-        return {**result, "reply": f"Couldn't find '{app}', Boss. Is it installed?"}
+        return {**result, "reply": f"Couldn't find or open '{app}' on your laptop, Boss."}
 
-    # Focus window
+    # 4. Focus window
     m = _FOCUS_RE.match(t)
     if m:
         win = m.group("window").strip()
         result = focus_window(win)
         if result["ok"]:
-            return {**result, "reply": f"Switched to {result['focused']}, Boss!", "action_type": "focus_window"}
-        return {**result, "reply": f"No window named '{win}' found, Boss."}
+            return {**result, "reply": f"Switched to {result.get('focused', win)}, Boss!", "action_type": "focus_window"}
+        return {**result, "reply": f"No open window matching '{win}' found, Boss."}
 
-    # Close window
+    # 5. Close window / app
     m = _CLOSE_RE.match(t)
     if m:
         win = m.group("window").strip()
         result = close_window(win)
         if result["ok"]:
-            return {**result, "reply": f"Closed {result['closed']}, Boss!", "action_type": "close_window"}
+            return {**result, "reply": f"Closed {result.get('closed', win)}, Boss!", "action_type": "close_window"}
         return {**result, "reply": f"Couldn't find '{win}' to close, Boss."}
 
-    # Minimise
+    # 6. Minimize window
     m = _MIN_RE.match(t)
     if m:
         win = m.group("window").strip()
         result = minimize_window(win)
         if result["ok"]:
-            return {**result, "reply": f"Minimised {result['minimized']}, Boss!", "action_type": "minimize_window"}
+            return {**result, "reply": f"Minimised {result.get('minimized', win)}, Boss!", "action_type": "minimize_window"}
         return {**result, "reply": f"Couldn't find '{win}', Boss."}
 
-    # Type text
+    # 7. Type text
     m = _TYPE_RE.match(t)
     if m:
         text_to_type = m.group("text").strip()
@@ -713,7 +709,7 @@ def parse_and_execute(text: str) -> dict:
             return {**result, "reply": f"Typed it, Boss!", "action_type": "type_text"}
         return {**result, "reply": f"Couldn't type: {result.get('error')}"}
 
-    # Press key
+    # 8. Press key
     m = _KEY_RE.match(t)
     if m:
         key = m.group("key").strip()
@@ -722,7 +718,7 @@ def parse_and_execute(text: str) -> dict:
             return {**result, "reply": f"Pressed {key}, Boss!", "action_type": "press_key"}
         return {**result, "reply": f"Couldn't press {key}: {result.get('error')}"}
 
-    # Scroll
+    # 9. Scroll
     m = _SCROLL_RE.match(t)
     if m:
         direction = m.group("direction")
@@ -733,3 +729,4 @@ def parse_and_execute(text: str) -> dict:
         return {**result, "reply": f"Scroll failed: {result.get('error')}"}
 
     return {"ok": False, "reply": "Didn't catch that command, Boss.", "action_type": "unknown"}
+
