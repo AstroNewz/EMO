@@ -70,11 +70,14 @@ def clear_memory() -> dict:
 def _run_git(args: list[str]) -> tuple[int, str]:
     """Run a git command in the EMO project directory."""
     try:
+        env = dict(os.environ)
+        env["GIT_TERMINAL_PROMPT"] = "0"
         res = subprocess.run(
             ["git"] + args,
             cwd=str(ROOT),
             capture_output=True,
             text=True,
+            env=env,
             timeout=25,
         )
         out = (res.stdout + "\n" + res.stderr).strip()
@@ -158,27 +161,34 @@ def push_memory_to_git(commit_msg: str = None) -> dict:
 def sync_memory_git() -> dict:
     """
     Full bidirectional memory sync:
-    1. Pull latest from GitHub
-    2. Merge local chat history
-    3. Push updated memory back to GitHub
+    1. Pull latest from GitHub (restores memory saved from laptop/phone)
+    2. Try pushing local memory back to GitHub (if git credentials are set)
     """
     pull_res = pull_memory_from_git()
     if not pull_res.get("ok"):
         return pull_res
 
     push_res = push_memory_to_git("sync: full 1-click memory sync across devices")
-    if not push_res.get("ok"):
-        return push_res
     
     mem = load_memory()
     chat_count = len(mem.get("chat_history", []))
-    
+
+    if push_res.get("ok"):
+        return {
+            "ok": True,
+            "message": f"1-Click Memory Sync Complete! {chat_count} messages synced with GitHub.",
+            "chat_count": chat_count,
+            "pull": pull_res,
+            "push": push_res,
+        }
+
+    # If push failed (e.g. unauthenticated git push on phone), pull still succeeded!
     return {
         "ok": True,
-        "message": f"1-Click Memory Sync Complete! {chat_count} messages synced with GitHub.",
+        "message": f"Memory pulled & restored! {chat_count} messages loaded from GitHub.",
         "chat_count": chat_count,
         "pull": pull_res,
-        "push": push_res,
+        "push_note": "To enable background push from phone, save your GitHub Token in Termux.",
     }
 
 
