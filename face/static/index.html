@@ -101,6 +101,70 @@
   .vector-icon-btn.active { background: var(--cream); color: #000; border-color: var(--cream); }
   .vector-icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
 
+  /* ---------- MODE BADGE ---------- */
+  #mode-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(0,243,255,0.1);
+    border: 1px solid rgba(0,243,255,0.25);
+    color: var(--cyan);
+    display: none;
+  }
+  #mode-badge.laptop { display: inline-block; }
+
+  /* ---------- SILENT MODE BADGE ---------- */
+  #silent-badge {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    padding: 3px 8px;
+    border-radius: 20px;
+    background: rgba(242,162,172,0.12);
+    border: 1px solid rgba(242,162,172,0.3);
+    color: var(--pink);
+    display: none;
+    animation: silentPulse 2s ease-in-out infinite;
+  }
+  #silent-badge.on { display: inline-block; }
+  @keyframes silentPulse {
+    0%,100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  /* ---------- SCREENSHOT IN BUBBLE ---------- */
+  #screenshot-preview {
+    display: none;
+    max-width: 100%;
+    border-radius: 10px;
+    margin-top: 10px;
+    border: 1px solid #333;
+    cursor: pointer;
+  }
+
+  /* ---------- TYPING INDICATOR (silent mode) ---------- */
+  .typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 0;
+  }
+  .typing-indicator span {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cream);
+    animation: typingBounce 1.4s ease-in-out infinite;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typingBounce {
+    0%,60%,100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
   /* ---------- SPEECH BUBBLE DIALOG ---------- */
   #speech-bubble {
     width: min(520px, 94vw);
@@ -315,6 +379,19 @@
   </div>
 
   <div class="icon-controls-group">
+    <!-- MODE BADGE: shown on laptop -->
+    <span id="mode-badge" title="Running in Laptop Mode">🖥 LAPTOP</span>
+    <!-- SILENT MODE BADGE -->
+    <span id="silent-badge" title="Silent Mode — text only, no speaking">🔇 SILENT</span>
+    <!-- SILENT MODE TOGGLE -->
+    <button id="silent-toggle-btn" class="vector-icon-btn" title="Toggle Silent Mode (text-only replies)">
+      <svg id="silent-icon-speaker" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      <svg id="silent-icon-mute" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    </button>
+    <!-- SCREENSHOT BUTTON (laptop only) -->
+    <button id="screenshot-btn" class="vector-icon-btn" title="Take Screenshot" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 13a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
+    </button>
     <!-- VECTOR ICON: CAMERA -->
     <button id="cam-toggle-btn" class="vector-icon-btn" title="Toggle Camera & Vision">
       <svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 100 6 3 3 0 000-6zm-7-3h3.17L9.41 4.41A2 2 0 0110.83 4h2.34c.53 0 1.04.21 1.42.59L15.83 6H19a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm7 11a5 5 0 100-10 5 5 0 000 10z"/></svg>
@@ -322,6 +399,10 @@
     <!-- VECTOR ICON: ENROLL FACE -->
     <button id="face-enroll-btn" class="vector-icon-btn" title="Save Face as Boss" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 100 10 5 5 0 000-10zm0 14c-5.33 0-8 2.67-8 4v1h16v-1c0-1.33-2.67-4-8-4z"/></svg>
+    </button>
+    <!-- VECTOR ICON: GITHUB MEMORY SYNC -->
+    <button id="memory-sync-btn" class="vector-icon-btn" title="Sync Memory with GitHub (Push / Pull across Laptop & Phone)">
+      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
     </button>
     <!-- VECTOR ICON: MICROPHONE -->
     <button id="mic-toggle-btn" class="vector-icon-btn" title="Toggle Continuous Microphone">
@@ -334,6 +415,7 @@
 <!-- SPEECH BUBBLE DIALOG -->
 <div id="speech-bubble">
   <div id="bubble-text">Hi! I'm EMO, your companion.</div>
+  <img id="screenshot-preview" alt="Screenshot" title="Click to enlarge" onclick="this.style.display='none'" />
 </div>
 
 <!-- ENLARGED EMO STAGE -->
@@ -502,6 +584,40 @@
 <script>
 (function(){
   "use strict";
+
+  /* ────────── SILENT MODE STATE ────────── */
+  var silentMode = false;
+  var silentToggleBtn = document.getElementById('silent-toggle-btn');
+  var silentBadge = document.getElementById('silent-badge');
+  var silentIconSpeaker = document.getElementById('silent-icon-speaker');
+  var silentIconMute = document.getElementById('silent-icon-mute');
+
+  function setSilentMode(on) {
+    silentMode = on;
+    if (silentBadge) silentBadge.classList.toggle('on', on);
+    if (silentToggleBtn) silentToggleBtn.classList.toggle('active', on);
+    if (silentIconSpeaker) silentIconSpeaker.style.display = on ? 'none' : 'block';
+    if (silentIconMute) silentIconMute.style.display = on ? 'block' : 'none';
+    // Disable mic in silent mode
+    if (on && autoListenEnabled) {
+      autoListenEnabled = false;
+      if (recognition) { try { recognition.stop(); } catch(e){} }
+      stopListening();
+    }
+  }
+
+  if (silentToggleBtn) {
+    silentToggleBtn.addEventListener('click', function() {
+      setSilentMode(!silentMode);
+      var bubbleText = document.getElementById('bubble-text');
+      if (silentMode) {
+        bubbleText.textContent = "Silent mode ON — I'll reply in text only, Boss.";
+      } else {
+        bubbleText.textContent = "Voice mode ON — I can speak again, Boss!";
+        speakText("Voice mode is back on, Boss!");
+      }
+    });
+  }
 
   var svg      = document.getElementById('wisp');
   var stage    = document.getElementById('stage');
@@ -729,13 +845,19 @@
 
     var emotion = inferEmotion(val);
     setEmotion(emotion);
-    bubbleText.textContent = "You: " + val + "...";
+
+    // Silent mode: show typing indicator instead of "You: ..." 
+    if (silentMode) {
+      bubbleText.innerHTML = '<span style="color:#888">You: ' + val + '</span><br><div class="typing-indicator"><span></span><span></span><span></span></div>';
+    } else {
+      bubbleText.textContent = "You: " + val + "...";
+    }
     input.value = "";
 
     fetch("/api/ai/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: val })
+      body: JSON.stringify({ message: val, silent: silentMode })
     })
     .then(function(r){ return r.json(); })
     .then(function(data){
@@ -744,19 +866,169 @@
       var replyEmo = inferEmotion(reply);
       setEmotion(replyEmo);
 
-      speakText(reply, function() {
-        if (autoListenEnabled) {
-          setTimeout(startListening, 300);
+      // ── Handle EMO action payloads ──────────────────────────────
+      var action = data.action;
+      if (action && action.type === "whatsapp_send") {
+        // Tell Android bridge to fire the WhatsApp intent
+        if (window.Android && window.Android.sendWhatsApp) {
+          var sent = window.Android.sendWhatsApp(
+            action.phone,
+            action.message,
+            action.contact
+          );
+          if (!sent) {
+            bubbleText.textContent = "WhatsApp doesn't seem to be installed, Boss!";
+          }
+        } else {
+          // Browser fallback: open the WhatsApp web link
+          window.open(action.url, "_blank");
         }
-      });
+      }
+
+      if (action && action.type === "whatsapp_need_number") {
+        // Prompt Boss to provide the number, then save it
+        var num = prompt(
+          "What's " + action.contact + "'s WhatsApp number? (e.g. +919876543210)"
+        );
+        if (num && num.trim()) {
+          // Save contact via backend API
+          fetch("/api/contacts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: action.contact, phone: num.trim() })
+          }).then(function(r){ return r.json(); }).then(function(res){
+            if (res.ok) {
+              // Retry sending now that we have the number
+              var cleanPhone = num.trim().replace(/[^\d]/g, "");
+              if (window.Android && window.Android.sendWhatsApp) {
+                window.Android.sendWhatsApp(cleanPhone, action.message, action.contact);
+              }
+              bubbleText.textContent = "Saved " + action.contact + " and sending now!";
+              speakText("Saved " + action.contact + " and sending now!");
+            }
+          });
+        }
+      }
+      // ── Handle screenshot response ───────────────────────────────
+      var screenshotEl = document.getElementById('screenshot-preview');
+      if (data.screenshot_b64 && screenshotEl) {
+        screenshotEl.src = 'data:image/png;base64,' + data.screenshot_b64;
+        screenshotEl.style.display = 'block';
+      }
+      // ── Handle windows list ─────────────────────────────────────
+      if (data.windows && data.windows.length) {
+        var winText = "Open apps: " + data.windows.slice(0, 8).join(', ');
+        bubbleText.textContent = winText;
+      }
+      // ── End action handling ──────────────────────────────────────
+
+      // ── Silent mode: text only, no TTS ────────────────────────
+      if (silentMode) {
+        // Just show text — no speaking, no lip-sync, no mic restart
+        setEmotion(replyEmo);
+      } else {
+        speakText(reply, function() {
+          if (autoListenEnabled) {
+            setTimeout(startListening, 300);
+          }
+        });
+      }
     })
     .catch(function(){
       bubbleText.textContent = "I'm right here with you!";
       setEmotion('love');
-      speakText("I'm right here with you!", function() {
-        if (autoListenEnabled) {
-          setTimeout(startListening, 300);
+      if (!silentMode) {
+        speakText("I'm right here with you!", function() {
+          if (autoListenEnabled) {
+            setTimeout(startListening, 300);
+          }
+        });
+      }
+    });
+
+  }
+
+  /* ---------- LAPTOP MODE INIT ---------- */
+  (function initLaptopMode() {
+    var isAndroid = /Android/i.test(navigator.userAgent);
+    if (!isAndroid) {
+      // Show laptop mode badge
+      var badge = document.getElementById('mode-badge');
+      if (badge) badge.classList.add('laptop');
+
+      // Show screenshot button
+      var ssBtn = document.getElementById('screenshot-btn');
+      if (ssBtn) {
+        ssBtn.style.display = 'flex';
+        ssBtn.addEventListener('click', function() {
+          var bubbleText = document.getElementById('bubble-text');
+          var screenshotEl = document.getElementById('screenshot-preview');
+          bubbleText.textContent = "Taking screenshot...";
+          fetch('/api/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'take_screenshot' })
+          }).then(function(r){ return r.json(); }).then(function(data) {
+            if (data.screenshot_b64 && screenshotEl) {
+              screenshotEl.src = 'data:image/png;base64,' + data.screenshot_b64;
+              screenshotEl.style.display = 'block';
+              bubbleText.textContent = "Here's what's on your screen, Boss!";
+              speakText("Here's what's on your screen, Boss!");
+            }
+          }).catch(function() {
+            bubbleText.textContent = "Screenshot failed, Boss!";
+          });
+        });
+      }
+    }
+  })();
+
+  /* ---------- GITHUB MEMORY SYNC HANDLER ---------- */
+  var memorySyncBtn = document.getElementById('memory-sync-btn');
+  if (memorySyncBtn) {
+    memorySyncBtn.addEventListener('click', function(e) {
+      var bubbleText = document.getElementById('bubble-text');
+      var action = "sync";
+
+      // Allow shift-click or prompt to choose specific action: Pull vs Push vs Sync
+      if (e.shiftKey) {
+        var choice = prompt("GitHub Memory Sync Options:\n1. type 'pull' -> Overwrite local memory from GitHub (phone -> laptop)\n2. type 'push' -> Upload local memory to GitHub\n3. type 'sync' -> 1-Click Pull & Push (default)", "sync");
+        if (!choice) return;
+        var cleanChoice = choice.trim().toLowerCase();
+        if (cleanChoice === "pull" || cleanChoice === "push" || cleanChoice === "sync") {
+          action = cleanChoice;
         }
+      }
+
+      setEmotion('thinking');
+      if (action === "pull") {
+        bubbleText.textContent = "Pulling latest memory from GitHub...";
+      } else if (action === "push") {
+        bubbleText.textContent = "Pushing local memory to GitHub...";
+      } else {
+        bubbleText.textContent = "Syncing memory with GitHub...";
+      }
+
+      fetch("/api/memory/" + action, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          setEmotion('excited');
+          var msg = data.message || ("Memory synced! " + (data.chat_count || 0) + " messages loaded, Boss!");
+          bubbleText.textContent = msg;
+          if (!silentMode) speakText(msg);
+        } else {
+          setEmotion('worried');
+          var err = "Memory sync failed: " + (data.error || "unknown error");
+          bubbleText.textContent = err;
+        }
+      })
+      .catch(function(err){
+        setEmotion('worried');
+        bubbleText.textContent = "Memory sync error, Boss!";
       });
     });
   }
@@ -915,7 +1187,7 @@
       cameraStream = null;
     }
     cameraActive = false;
-    if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+    if (visionInterval) { clearInterval(visionInterval); visionInterval = null; }
     previewWrapper.style.display = "none";
     camToggleBtn.classList.remove("active");
     faceEnrollBtn.style.display = "none";
