@@ -6,6 +6,7 @@ Provides 1-click GitHub Memory Sync so conversation history and memory stay
 in sync seamlessly across Laptop and Phone without any data loss.
 """
 
+import os
 import json
 import subprocess
 from pathlib import Path
