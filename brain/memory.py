@@ -75,12 +75,18 @@ def _run_git(args: list[str]) -> tuple[int, str]:
             cwd=str(ROOT),
             capture_output=True,
             text=True,
-            timeout=20,
+            timeout=25,
         )
         out = (res.stdout + "\n" + res.stderr).strip()
         return res.returncode, out
     except Exception as e:
         return -1, str(e)
+
+
+def _ensure_git_config():
+    """Ensure git user.email and user.name are configured for local commits."""
+    _run_git(["config", "user.email", "emo@assistant.local"])
+    _run_git(["config", "user.name", "EMO Assistant"])
 
 
 def pull_memory_from_git() -> dict:
@@ -116,6 +122,7 @@ def push_memory_to_git(commit_msg: str = None) -> dict:
     Stage, commit, and push brain/memory.json & brain/contacts.json to GitHub origin/main.
     Uploads local conversation state so other devices can pull it.
     """
+    _ensure_git_config()
     mem = load_memory()
     chat_count = len(mem.get("chat_history", []))
 
@@ -137,7 +144,7 @@ def push_memory_to_git(commit_msg: str = None) -> dict:
         _run_git(["pull", "--rebase", "origin", "main"])
         code_push, out_push = _run_git(["push", "origin", "main"])
         if code_push != 0:
-            return {"ok": False, "error": f"Git push failed: {out_push}"}
+            return {"ok": False, "error": f"Git push failed: {out_push or 'Could not push to GitHub. Check internet or Git credentials.'}"}
 
     print(f"[Memory.Git] Successfully pushed memory to GitHub!")
     return {
@@ -156,13 +163,18 @@ def sync_memory_git() -> dict:
     3. Push updated memory back to GitHub
     """
     pull_res = pull_memory_from_git()
+    if not pull_res.get("ok"):
+        return pull_res
+
     push_res = push_memory_to_git("sync: full 1-click memory sync across devices")
+    if not push_res.get("ok"):
+        return push_res
     
     mem = load_memory()
     chat_count = len(mem.get("chat_history", []))
     
     return {
-        "ok": push_res.get("ok", True),
+        "ok": True,
         "message": f"1-Click Memory Sync Complete! {chat_count} messages synced with GitHub.",
         "chat_count": chat_count,
         "pull": pull_res,

@@ -1048,13 +1048,13 @@
           if (!silentMode) speakText(msg);
         } else {
           setEmotion('worried');
-          var err = "Memory sync failed: " + (data.error || "unknown error");
+          var err = "Memory sync failed: " + (data.error || data.message || "git sync error");
           bubbleText.textContent = err;
         }
       })
       .catch(function(err){
         setEmotion('worried');
-        bubbleText.textContent = "Memory sync error, Boss!";
+        bubbleText.textContent = "Memory sync request failed, Boss!";
       });
     });
   }
