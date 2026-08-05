@@ -120,6 +120,30 @@
     {
       "role": "assistant",
       "content": "Opening calculator now, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "close the calculator"
+    },
+    {
+      "role": "assistant",
+      "content": "Couldn't find 'the calculator' to close, Boss."
     }
   ]
 }
