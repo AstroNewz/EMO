@@ -144,6 +144,22 @@
     {
       "role": "assistant",
       "content": "Couldn't find 'the calculator' to close, Boss."
+    },
+    {
+      "role": "user",
+      "content": "open calculator"
+    },
+    {
+      "role": "assistant",
+      "content": "Opening calculator now, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "close"
+    },
+    {
+      "role": "assistant",
+      "content": "I had trouble reaching my online brain."
     }
   ]
 }
