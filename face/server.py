@@ -680,6 +680,18 @@ class Handler(BaseHTTPRequestHandler):
                         ws_res = google_workspace.search_emails(user_msg)
                     context_addons += f"\n\n[GOOGLE WORKSPACE DATA]:\n{ws_res}"
 
+                # ── SAR: System 2 — Semantically Aware Reasoning ──────────
+                # Ground the LLM (System 1) in curated knowledge (System 2)
+                # from the dual-process architecture (SAR paper).
+                try:
+                    from brain.sar import engine as sar_engine
+                    sar_context = sar_engine.get_context_for_llm(user_msg)
+                    if sar_context:
+                        context_addons += sar_context
+                        print(f"[chat.api] SAR grounding applied for: '{user_msg}'")
+                except Exception as sar_err:
+                    print(f"[chat.api] SAR error (non-fatal): {sar_err}")
+
                 from core.orchestrator import _emo_system_prefix
                 system = _emo_system_prefix()
 
