@@ -82,6 +82,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: nowrap;
   }
 
   .vector-icon-btn {
@@ -96,10 +97,35 @@
     cursor: pointer;
     transition: all 0.2s ease;
     color: #a0a0a0;
+    flex-shrink: 0;
   }
   .vector-icon-btn:hover { border-color: var(--cream); color: var(--fg); }
   .vector-icon-btn.active { background: var(--cream); color: #000; border-color: var(--cream); }
   .vector-icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
+
+  /* ---------- MOBILE RESPONSIVE OPTIMIZATION ---------- */
+  @media (max-width: 520px) {
+    #hud-controls-bar {
+      padding: 6px 10px;
+      width: 96vw;
+    }
+    .icon-controls-group {
+      gap: 5px;
+    }
+    .vector-icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+    }
+    .vector-icon-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+    #mode-badge, #silent-badge {
+      font-size: 9px;
+      padding: 2px 6px;
+    }
+  }
 
   /* ---------- MODE BADGE ---------- */
   #mode-badge {
