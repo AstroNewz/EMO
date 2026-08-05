@@ -400,6 +400,10 @@
     <button id="face-enroll-btn" class="vector-icon-btn" title="Save Face as Boss" style="display:none">
       <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 100 10 5 5 0 000-10zm0 14c-5.33 0-8 2.67-8 4v1h16v-1c0-1.33-2.67-4-8-4z"/></svg>
     </button>
+    <!-- VECTOR ICON: GITHUB MEMORY SYNC -->
+    <button id="memory-sync-btn" class="vector-icon-btn" title="Sync Memory with GitHub (Push / Pull across Laptop & Phone)">
+      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+    </button>
     <!-- VECTOR ICON: MICROPHONE -->
     <button id="mic-toggle-btn" class="vector-icon-btn" title="Toggle Continuous Microphone">
       <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/></svg>
@@ -978,6 +982,56 @@
       }
     }
   })();
+
+  /* ---------- GITHUB MEMORY SYNC HANDLER ---------- */
+  var memorySyncBtn = document.getElementById('memory-sync-btn');
+  if (memorySyncBtn) {
+    memorySyncBtn.addEventListener('click', function(e) {
+      var bubbleText = document.getElementById('bubble-text');
+      var action = "sync";
+
+      // Allow shift-click or prompt to choose specific action: Pull vs Push vs Sync
+      if (e.shiftKey) {
+        var choice = prompt("GitHub Memory Sync Options:\n1. type 'pull' -> Overwrite local memory from GitHub (phone -> laptop)\n2. type 'push' -> Upload local memory to GitHub\n3. type 'sync' -> 1-Click Pull & Push (default)", "sync");
+        if (!choice) return;
+        var cleanChoice = choice.trim().toLowerCase();
+        if (cleanChoice === "pull" || cleanChoice === "push" || cleanChoice === "sync") {
+          action = cleanChoice;
+        }
+      }
+
+      setEmotion('thinking');
+      if (action === "pull") {
+        bubbleText.textContent = "Pulling latest memory from GitHub...";
+      } else if (action === "push") {
+        bubbleText.textContent = "Pushing local memory to GitHub...";
+      } else {
+        bubbleText.textContent = "Syncing memory with GitHub...";
+      }
+
+      fetch("/api/memory/" + action, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if (data.ok) {
+          setEmotion('excited');
+          var msg = data.message || ("Memory synced! " + (data.chat_count || 0) + " messages loaded, Boss!");
+          bubbleText.textContent = msg;
+          if (!silentMode) speakText(msg);
+        } else {
+          setEmotion('worried');
+          var err = "Memory sync failed: " + (data.error || "unknown error");
+          bubbleText.textContent = err;
+        }
+      })
+      .catch(function(err){
+        setEmotion('worried');
+        bubbleText.textContent = "Memory sync error, Boss!";
+      });
+    });
+  }
 
   /* ---------- CONTINUOUS LOOP WEB AUDIO MIC ---------- */
   var recognition = null;

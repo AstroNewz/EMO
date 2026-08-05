@@ -479,6 +479,24 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "enrolled": False})
             return
 
+        # Memory Status & Sync API (GET)
+        if path.startswith("/api/memory"):
+            try:
+                from brain import memory
+                if path == "/api/memory/status":
+                    self._send_json(memory.get_memory_status())
+                elif path == "/api/memory/pull":
+                    self._send_json(memory.pull_memory_from_git())
+                elif path == "/api/memory/push":
+                    self._send_json(memory.push_memory_to_git())
+                elif path == "/api/memory/sync":
+                    self._send_json(memory.sync_memory_git())
+                else:
+                    self.send_error(404, "Not found")
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
         # ---- Original endpoints (preserved for backward compat) ----
         if path == "/state":
             tele = get_telemetry()
@@ -750,6 +768,29 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"ok": result.get("ok", True), **result})
             except Exception as e:
                 print(f"[control.api] Error in '{action}': {e}")
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
+        # ── GitHub Memory Sync API ────────────────────────────────────────────
+        if path.startswith("/api/memory"):
+            try:
+                from brain import memory
+                if path in ("/api/memory/status", "/api/memory"):
+                    self._send_json(memory.get_memory_status())
+                elif path == "/api/memory/pull":
+                    self._send_json(memory.pull_memory_from_git())
+                elif path == "/api/memory/push":
+                    body = self._read_json() or {}
+                    msg = body.get("message")
+                    self._send_json(memory.push_memory_to_git(msg))
+                elif path == "/api/memory/sync":
+                    self._send_json(memory.sync_memory_git())
+                elif path == "/api/memory/clear":
+                    self._send_json(memory.clear_memory())
+                else:
+                    self._send_json({"ok": False, "error": f"Invalid path for memory API: {path}"}, code=400)
+            except Exception as e:
+                print(f"[memory.api] Error: {e}")
                 self._send_json({"ok": False, "error": str(e)}, code=500)
             return
 
