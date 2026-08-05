@@ -36,19 +36,32 @@ SAR_THRESHOLD = 0.58
 # ══════════════════════════════════════════════════════════════════════════════
 
 # Common English stop words to ignore in similarity matching
-# NOTE: We deliberately KEEP question words (what, who, how, can, do) because
-# they are critical for matching FAQ-style queries like "What is EMO?"
 _STOP_WORDS = frozenset({
     "a", "an", "the", "is", "it", "of", "in", "to", "and", "or", "for",
-    "on", "at", "by", "your", "my", "me", "i", "we", "us",
-    "he", "she", "they", "them", "this", "that", "which",
-    "could", "will", "would", "should", "may", "be", "been",
+    "on", "at", "by", "you", "your", "my", "me", "i", "we", "us",
+    "he", "she", "they", "them", "this", "that", "what", "which", "who",
+    "how", "can", "could", "will", "would", "should", "may", "be", "been",
     "being", "have", "has", "had", "was", "were", "are", "am", "does",
-    "did", "not", "no", "but", "if", "so", "as", "with", "about", "from",
+    "did", "do", "not", "no", "but", "if", "so", "as", "with", "about", "from",
     "up", "out", "just", "also", "very", "too", "more", "than", "then",
     "there", "here", "all", "some", "any", "each", "every", "own",
-    "please", "tell", "know",
+    "please", "tell", "know", "give", "show", "get", "way",
 })
+
+# Direct phrase mapping for ultra-short queries that get stripped by stop words
+_PHRASE_MAPPINGS = {
+    "who are you": "What is EMO?",
+    "what are you": "What is EMO?",
+    "who made you": "Who created EMO?",
+    "who built you": "Who created EMO?",
+    "who is your creator": "Who created EMO?",
+    "are you an ai": "Are you an AI?",
+    "are you ai": "Are you an AI?",
+    "are you chatgpt": "Are you an AI?",
+    "are you a chatbot": "Are you an AI?",
+    "what can you do": "What can EMO do?",
+    "what are your features": "What can EMO do?",
+}
 
 
 def _tokenize(text: str) -> list[str]:
@@ -127,12 +140,16 @@ class SAREngine:
     def _build_index(self):
         """Build TF-IDF index from all questions (original + alternatives)."""
         self._doc_tokens = []
-        for entry in self.entries:
-            # Combine main question + alternative phrasings into one document
+        self._doc_map = []  # Index -> parent entry index
+        for entry_idx, entry in enumerate(self.entries):
             all_questions = [entry.get("q", "")]
             all_questions.extend(entry.get("alt_q", []))
-            combined_text = " ".join(all_questions)
-            self._doc_tokens.append(_tokenize(combined_text))
+            for q_str in all_questions:
+                if q_str.strip():
+                    tokens = _tokenize(q_str)
+                    if tokens:
+                        self._doc_tokens.append(tokens)
+                        self._doc_map.append(entry_idx)
 
         self._idf = _build_idf(self._doc_tokens)
         self._doc_vectors = [_tfidf_vector(doc, self._idf) for doc in self._doc_tokens]
@@ -144,8 +161,16 @@ class SAREngine:
         Returns:
             (answer, confidence, entry) — the best match, or (None, 0.0, None) if below threshold.
         """
-        if not self._loaded or not self.entries:
+        if not self._loaded or not self.entries or not self._doc_vectors:
             return None, 0.0, None
+
+        # 1. Fast Phrase Mapping check
+        clean_raw = re.sub(r"[^\w\s]", "", user_text.lower()).strip()
+        if clean_raw in _PHRASE_MAPPINGS:
+            target_q = _PHRASE_MAPPINGS[clean_raw]
+            for entry in self.entries:
+                if entry.get("q") == target_q:
+                    return entry.get("a", ""), 1.0, entry
 
         query_tokens = _tokenize(user_text)
         if not query_tokens:
@@ -154,16 +179,17 @@ class SAREngine:
         query_vec = _tfidf_vector(query_tokens, self._idf)
 
         best_score = 0.0
-        best_idx = -1
+        best_doc_idx = -1
 
         for i, doc_vec in enumerate(self._doc_vectors):
             score = _cosine_similarity(query_vec, doc_vec)
             if score > best_score:
                 best_score = score
-                best_idx = i
+                best_doc_idx = i
 
-        if best_score >= threshold and best_idx >= 0:
-            entry = self.entries[best_idx]
+        if best_score >= threshold and best_doc_idx >= 0:
+            parent_entry_idx = self._doc_map[best_doc_idx]
+            entry = self.entries[parent_entry_idx]
             return entry.get("a", ""), best_score, entry
 
         return None, best_score, None
