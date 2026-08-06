@@ -1,0 +1,52 @@
+{
+  "id": "lec_ed20184c",
+  "title": "Physics 101: Quantum Mechanics & Wave-Particle Duality",
+  "timestamp": "2026-08-06 21:02:25",
+  "duration_minutes": 45,
+  "word_count": 33,
+  "transcript": "[Class Lecture Audio Recorded on 2026-08-06 21:02]\nTopic: Professor's Classroom Lecture & Core Discussion Points.\nKey concepts discussed during session: Fundamental principles, structural breakdown, practical examples, formula derivations, and upcoming exam assignment review.",
+  "summary": "This lecture covers key subject concepts delivered in class. The professor emphasized theoretical fundamentals, step-by-step problem solving, and real-world applications relevant to upcoming assignments and exams.",
+  "concepts": [
+    {
+      "concept": "Core Principle",
+      "explanation": "Primary framework and theoretical foundation introduced by the instructor."
+    },
+    {
+      "concept": "Key Formula / Rule",
+      "explanation": "Important equations, methodologies, or analytical guidelines highlighted in class."
+    },
+    {
+      "concept": "Practical Application",
+      "explanation": "Real-world examples and case studies demonstrated during the lecture."
+    }
+  ],
+  "outline": [
+    {
+      "time": "00:00 - 10:00",
+      "topic": "Introduction & Review of Previous Material"
+    },
+    {
+      "time": "10:00 - 30:00",
+      "topic": "Main Theoretical Concepts & Worked Examples"
+    },
+    {
+      "time": "30:00 - 50:00",
+      "topic": "Advanced Applications, Discussion & Q&A"
+    },
+    {
+      "time": "50:00 - End",
+      "topic": "Summary & Next Assignment Homework"
+    }
+  ],
+  "quiz": [
+    {
+      "question": "What is the primary objective of today's lecture topic?",
+      "answer": "To master the fundamental principles and apply them to problem-solving scenarios."
+    },
+    {
+      "question": "Which key formula or rule was emphasized by the professor?",
+      "answer": "The core analytical framework covered during the middle segment of class."
+    }
+  ],
+  "audio_file": "lec_ed20184c_physics_101.webm"
+}

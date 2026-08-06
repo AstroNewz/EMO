@@ -497,6 +497,25 @@ class Handler(BaseHTTPRequestHandler):
                 self._send_json({"ok": False, "error": str(e)}, code=500)
             return
 
+        # Class Lecture Notes API (GET)
+        if path.startswith("/api/lecture"):
+            try:
+                from brain import lecture
+                if path == "/api/lecture/list":
+                    self._send_json({"ok": True, "lectures": lecture.list_lectures()})
+                elif path.startswith("/api/lecture/"):
+                    lec_id = path.split("/api/lecture/", 1)[1]
+                    item = lecture.get_lecture(lec_id)
+                    if item:
+                        self._send_json({"ok": True, "lecture": item})
+                    else:
+                        self._send_json({"ok": False, "error": "Lecture not found"}, code=404)
+                else:
+                    self.send_error(404, "Not found")
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
         # ---- Original endpoints (preserved for backward compat) ----
         if path == "/state":
             tele = get_telemetry()
@@ -582,6 +601,33 @@ class Handler(BaseHTTPRequestHandler):
             set_event(event)
             play_sfx(event)          # audio reflex in lock-step with the visual (e.g. dizzy)
             self._send_json({"ok": True, "event": event})
+            return
+
+        # Class Lecture Upload & Processing API
+        if path == "/api/lecture/upload":
+            try:
+                from brain import lecture
+                length = int(self.headers.get("Content-Length", 0) or 0)
+                raw_audio = self.rfile.read(length) if length else b""
+                title = self.headers.get("X-Lecture-Title", "")
+                if title:
+                    title = urllib.parse.unquote(title)
+                notes = lecture.save_lecture(raw_audio, filename="lecture.webm", title=title)
+                self._send_json({"ok": True, "lecture": notes})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
+            return
+
+        if path == "/api/lecture/chat":
+            body = self._read_json()
+            try:
+                from brain import lecture
+                lec_id = (body or {}).get("lecture_id", "")
+                query = (body or {}).get("query", "")
+                reply = lecture.chat_with_lecture(lec_id, query)
+                self._send_json({"ok": True, "reply": reply})
+            except Exception as e:
+                self._send_json({"ok": False, "error": str(e)}, code=500)
             return
 
         # Direct Ultra-Fast NVIDIA AI Chat Endpoint with Memory, Web Search & Google Workspace

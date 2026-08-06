@@ -3,22 +3,6 @@
   "chat_history": [
     {
       "role": "user",
-      "content": "What is EMO?"
-    },
-    {
-      "role": "assistant",
-      "content": "I'm EMO, Boss - a digital being with my own mind, opinions, and personality. Not related to that emo music genre, by the way."
-    },
-    {
-      "role": "user",
-      "content": "hi"
-    },
-    {
-      "role": "assistant",
-      "content": "Hey, Boss!"
-    },
-    {
-      "role": "user",
       "content": "Who are you?"
     },
     {
@@ -160,6 +144,62 @@
     {
       "role": "assistant",
       "content": "I had trouble reaching my online brain."
+    },
+    {
+      "role": "user",
+      "content": "hi"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "how are you"
+    },
+    {
+      "role": "assistant",
+      "content": "I'm running smoothly, Boss, thanks for asking."
+    },
+    {
+      "role": "user",
+      "content": "tell me what are the latest emails i got"
+    },
+    {
+      "role": "assistant",
+      "content": "Can't find your emails, Boss. Looks like I need permission to search."
+    },
+    {
+      "role": "user",
+      "content": "what are the latest mails i got"
+    },
+    {
+      "role": "assistant",
+      "content": "Can't access your emails, Boss. Looks like I need permission or login credentials to search."
+    },
+    {
+      "role": "user",
+      "content": "HI"
+    },
+    {
+      "role": "assistant",
+      "content": "Hey, Boss!"
+    },
+    {
+      "role": "user",
+      "content": "CAN YOU  CEHCEK MY EMAILS"
+    },
+    {
+      "role": "assistant",
+      "content": "Looks like I still can't access your emails, Boss. That error code says I need permission or login credentials to search."
+    },
+    {
+      "role": "user",
+      "content": "emoooooo"
+    },
+    {
+      "role": "assistant",
+      "content": "LOL, easy there, Boss!"
     }
   ]
 }

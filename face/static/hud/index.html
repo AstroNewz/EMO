@@ -544,6 +544,10 @@ body>*{position:relative;z-index:2}
       <b>LAPTOP</b>
     </span>
 
+    <span id="lecture-badge" class="badge warn" title="Stop & Transcribe Lecture" style="cursor:pointer">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="5" fill="#F2A2AC"/></svg>
+      <b id="lecture-timer">REC 00:00:00</b>
+    </span>
     <span id="silent-badge" class="badge warn">
       <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.4L7.6 3.2v9.6L4.4 10H2z"/><path d="M10.4 6.4l3.2 3.2M13.6 6.4l-3.2 3.2"/></svg>
       <b>SILENT</b>
@@ -572,6 +576,9 @@ body>*{position:relative;z-index:2}
     </button>
     <button id="face-enroll-btn" class="ibtn" title="Learn a face" aria-label="Enroll face">
       <svg viewBox="0 0 20 20"><circle cx="10" cy="7.4" r="3.2"/><path d="M4 16.8c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6"/></svg>
+    </button>
+    <button id="lecture-rec-btn" class="ibtn" title="Record Class Lecture" aria-label="Record lecture">
+      <svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="4" fill="#F2A2AC"/><path d="M10 2a8 8 0 1 0 0 16 8 8 0 0 0 0-16z"/></svg>
     </button>
     <button id="memory-sync-btn" class="ibtn" title="Sync memory" aria-label="Sync memory">
       <svg viewBox="0 0 20 20"><path d="M16.4 8.6A6.6 6.6 0 0 0 4.3 6.2"/><path d="M3.6 11.4a6.6 6.6 0 0 0 12.1 2.4"/><path d="M4.4 3.2v3h3M15.6 16.8v-3h-3"/></svg>
@@ -1041,6 +1048,32 @@ body>*{position:relative;z-index:2}
       <button id="auto-btn" class="ibtn" title="Toggle autopilot" aria-pressed="true" style="width:26px;height:26px;border-radius:8px">
         <svg viewBox="0 0 20 20" style="width:12px;height:12px"><path d="M6 4.4v11.2M14 4.4v11.2"/></svg>
       </button>
+    </div>
+  </div>
+</section>
+
+<!-- ================= LECTURE MODAL ================= -->
+<section id="lecture-modal" class="glass shell" style="overflow:hidden;max-height:0;opacity:0;transition:max-height .42s cubic-bezier(.4,0,.2,1),opacity .3s ease,margin .42s;margin-top:0;">
+  <div style="padding:13px 15px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span class="micro" style="color:var(--pink);font-weight:600;letter-spacing:.18em;">🎙️ CLASS LECTURE ENGINE</span>
+      <button id="close-lecture-btn" class="ibtn" style="width:26px;height:26px;">✕</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+      <button id="rec-start-btn" class="ibtn accent" style="width:auto;padding:0 14px;height:32px;border-radius:100px;font-size:11px;font-weight:500;gap:6px;">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--pink);display:inline-block;"></span> Start Recording Lecture
+      </button>
+      <button id="rec-stop-btn" class="ibtn warn" style="width:auto;padding:0 14px;height:32px;border-radius:100px;font-size:11px;display:none;background:var(--pink);color:#141414;border-color:var(--pink);font-weight:600;">
+        ⬛ Stop & Transcribe
+      </button>
+      <button id="refresh-lectures-btn" class="ibtn" style="width:32px;height:32px;" title="Refresh Lectures">🔄</button>
+    </div>
+    <div id="lecture-view" style="max-height:210px;overflow-y:auto;font-size:12px;line-height:1.55;color:#E4E4E8;padding-right:4px;">
+      <div id="lecture-list-container">Loading class lectures...</div>
+    </div>
+    <div id="lecture-chat-box" style="display:flex;gap:6px;margin-top:10px;">
+      <input id="lecture-chat-input" type="text" placeholder="Ask EMO about this lecture..." style="flex:1;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:100px;padding:7px 14px;color:#fff;font-size:11.5px;outline:none;" />
+      <button id="lecture-chat-send" class="ibtn" style="width:32px;height:32px;border-radius:50%;">➜</button>
     </div>
   </div>
 </section>
@@ -1922,7 +1955,232 @@ showBubble("Hi, I'm Emo — your companion.", 6000);
 document.addEventListener("visibilitychange", function(){
   if(!document.hidden) lastUser = Date.now();
 });
+
+  /* ───────────── CLASS LECTURE ENGINE JS ───────────── */
+  var lectureModal = $("lecture-modal");
+  var lectureRecBtn = $("lecture-rec-btn");
+  var closeLectureBtn = $("close-lecture-btn");
+  var recStartBtn = $("rec-start-btn");
+  var recStopBtn = $("rec-stop-btn");
+  var lectureBadge = $("lecture-badge");
+  var lectureTimerEl = $("lecture-timer");
+  var lectureView = $("lecture-view");
+  var lectureChatInput = $("lecture-chat-input");
+  var lectureChatSend = $("lecture-chat-send");
+  var refreshLecturesBtn = $("refresh-lectures-btn");
+
+  var mediaRecorder = null;
+  var audioChunks = [];
+  var recStartTime = 0;
+  var recInterval = null;
+  var activeLectureId = null;
+
+  if (lectureRecBtn) {
+    lectureRecBtn.addEventListener("click", function(){
+      var open = lectureModal.classList.toggle("open");
+      if (open) {
+        lectureModal.style.maxHeight = "360px";
+        lectureModal.style.opacity = "1";
+        lectureModal.style.marginTop = "6px";
+        loadLectureList();
+      } else {
+        closeLectureModal();
+      }
+    });
+  }
+  if (closeLectureBtn) {
+    closeLectureBtn.addEventListener("click", closeLectureModal);
+  }
+  function closeLectureModal(){
+    lectureModal.classList.remove("open");
+    lectureModal.style.maxHeight = "0";
+    lectureModal.style.opacity = "0";
+    lectureModal.style.marginTop = "0";
+  }
+
+  function updateRecTimer(){
+    var elapsed = Math.floor((Date.now() - recStartTime) / 1000);
+    var hrs = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+    var mins = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+    var secs = String(elapsed % 60).padStart(2, '0');
+    lectureTimerEl.textContent = "REC " + hrs + ":" + mins + ":" + secs;
+  }
+
+  if (recStartBtn) {
+    recStartBtn.addEventListener("click", function(){
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert("Microphone recording not supported in this browser.");
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream){
+        audioChunks = [];
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = function(e){
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+        mediaRecorder.onstop = uploadRecordedLecture;
+        mediaRecorder.start(1000);
+
+        recStartTime = Date.now();
+        recInterval = setInterval(updateRecTimer, 1000);
+        recStartBtn.style.display = "none";
+        recStopBtn.style.display = "inline-flex";
+        lectureBadge.classList.add("show");
+        setEmotion("thinking");
+        showBubble("Recording your class lecture, Boss! Speak or listen freely.", 4000);
+      }).catch(function(err){
+        alert("Could not access microphone: " + err.message);
+      });
+    });
+  }
+
+  if (recStopBtn) {
+    recStopBtn.addEventListener("click", stopLectureRecording);
+  }
+  if (lectureBadge) {
+    lectureBadge.addEventListener("click", stopLectureRecording);
+  }
+
+  function stopLectureRecording(){
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      if (mediaRecorder.stream) {
+        mediaRecorder.stream.getTracks().forEach(function(t){ t.stop(); });
+      }
+    }
+    clearInterval(recInterval);
+    recStartBtn.style.display = "inline-flex";
+    recStopBtn.style.display = "none";
+    lectureBadge.classList.remove("show");
+  }
+
+  function uploadRecordedLecture(){
+    setEmotion("thinking");
+    showBubble("Transcribing lecture & generating AI explanation notes...", 0);
+
+    var audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+    var title = prompt("Enter a title for this lecture:", "Class Lecture " + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+    title = title ? title.trim() : "Class Lecture";
+
+    fetch("/api/lecture/upload", {
+      method: "POST",
+      headers: {
+        "Content-Type": "audio/webm",
+        "X-Lecture-Title": encodeURIComponent(title)
+      },
+      body: audioBlob
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok && data.lecture) {
+        setEmotion("excited");
+        showBubble("Lecture transcribed & summarized! Saved to your notes library.", 6000);
+        activeLectureId = data.lecture.id;
+        renderLectureNotes(data.lecture);
+      } else {
+        setEmotion("worried");
+        showBubble("Lecture transcription error, Boss!", 5000);
+      }
+    })
+    .catch(function(err){
+      setEmotion("worried");
+      showBubble("Failed to upload lecture recording.", 5000);
+    });
+  }
+
+  function loadLectureList(){
+    fetch("/api/lecture/list")
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok && data.lectures && data.lectures.length > 0) {
+        var html = '<div style="font-weight:600;margin-bottom:6px;color:var(--cream);">Saved Class Lectures:</div>';
+        data.lectures.forEach(function(lec){
+          html += '<div class="lec-item" data-id="' + lec.id + '" style="padding:7px 10px;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer;">';
+          html += '  <div style="font-weight:500;color:#fff;">' + lec.title + '</div>';
+          html += '  <div style="font-size:10px;color:var(--dim);">' + lec.timestamp + ' • approx ' + lec.duration_minutes + ' min</div>';
+          html += '</div>';
+        });
+        $("lecture-list-container").innerHTML = html;
+        var items = $("lecture-list-container").querySelectorAll(".lec-item");
+        items.forEach(function(el){
+          el.addEventListener("click", function(){
+            var id = el.getAttribute("data-id");
+            fetchLectureDetails(id);
+          });
+        });
+      } else {
+        $("lecture-list-container").innerHTML = '<div style="color:var(--dim);padding:10px;">No lectures recorded yet. Tap Start Recording Lecture to begin!</div>';
+      }
+    }).catch(function(){});
+  }
+  if (refreshLecturesBtn) refreshLecturesBtn.addEventListener("click", loadLectureList);
+
+  function fetchLectureDetails(id){
+    fetch("/api/lecture/" + id)
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok && data.lecture) {
+        activeLectureId = data.lecture.id;
+        renderLectureNotes(data.lecture);
+      }
+    });
+  }
+
+  function renderLectureNotes(lec){
+    var html = '<div style="margin-bottom:8px;">';
+    html += '  <button id="back-lec-btn" style="background:none;border:none;color:var(--cyan);font-size:11px;cursor:pointer;padding:0 0 6px;">← Back to All Lectures</button>';
+    html += '  <div style="font-weight:600;font-size:13px;color:var(--cream);">' + lec.title + '</div>';
+    html += '  <div style="font-size:10px;color:var(--dim);margin-bottom:8px;">' + lec.timestamp + ' • ' + lec.duration_minutes + ' mins</div>';
+    html += '  <div style="margin-bottom:8px;background:rgba(127,227,245,.08);border:1px solid rgba(127,227,245,.2);padding:8px 10px;border-radius:8px;"><strong>📌 Executive Summary:</strong><br>' + lec.summary + '</div>';
+
+    if (lec.concepts && lec.concepts.length) {
+      html += '  <div style="margin-bottom:8px;"><strong>🔑 Core Concepts:</strong></div>';
+      lec.concepts.forEach(function(c){
+        html += '  <div style="margin-bottom:4px;padding-left:8px;border-left:2px solid var(--cream);">• <strong>' + c.concept + ':</strong> ' + c.explanation + '</div>';
+      });
+    }
+
+    if (lec.quiz && lec.quiz.length) {
+      html += '  <div style="margin-top:8px;margin-bottom:4px;"><strong>❓ Self-Test Quiz:</strong></div>';
+      lec.quiz.forEach(function(q, idx){
+        html += '  <div style="margin-bottom:4px;background:rgba(255,255,255,.03);padding:6px 8px;border-radius:6px;">Q' + (idx+1) + ': ' + q.question + '<br><span style="color:var(--green);">Ans: ' + q.answer + '</span></div>';
+      });
+    }
+    html += '</div>';
+
+    $("lecture-list-container").innerHTML = html;
+    var backBtn = $("back-lec-btn");
+    if (backBtn) backBtn.addEventListener("click", loadLectureList);
+  }
+
+  function sendLectureChat(){
+    var q = lectureChatInput.value.trim();
+    if (!q || !activeLectureId) return;
+    lectureChatInput.value = "";
+    setEmotion("thinking");
+    showBubble("Analyzing lecture notes...", 0);
+
+    fetch("/api/lecture/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lecture_id: activeLectureId, query: q })
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      if (data.ok && data.reply) {
+        setEmotion("excited");
+        showBubble(data.reply, 9000);
+      }
+    });
+  }
+  if (lectureChatSend) lectureChatSend.addEventListener("click", sendLectureChat);
+  if (lectureChatInput) {
+    lectureChatInput.addEventListener("keydown", function(e){
+      if (e.key === "Enter") sendLectureChat();
+    });
+  }
 })();
 </script>
+
 </body>
 </html>
