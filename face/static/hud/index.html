@@ -2,1272 +2,1926 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#050506">
 <title>EMO</title>
 <style>
-  :root{
-    --bg:#000;
-    --ink:#141414;
-    --cream:#F0DCA0;
-    --pink:#F2A2AC;
-    --fg:#f2f2f2;
-    --dim:#555555;
-    --cyan:#00f3ff;
-    --green:#00ff88;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    background:var(--bg);
-    color:var(--fg);
-    font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-    font-weight:300;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    gap:14px;
-    padding:20px 16px;
-    overflow:hidden;
-    -webkit-font-smoothing:antialiased;
-  }
+:root{
+  --bg:#050506;
+  --bg2:#0b0b0f;
+  --ink:#141414;
+  --fg:#ECECEE;
+  --dim:#67676F;
+  --dimmer:#3A3A41;
+  --line:rgba(255,255,255,.075);
+  --line2:rgba(255,255,255,.13);
+  --glass:rgba(20,20,24,.62);
+  --cream:#F0DCA0;
+  --pink:#F2A2AC;
+  --cyan:#7FE3F5;
+  --green:#8FE9B3;
+  --tint:var(--cream);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--fg);
+  font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
+  font-weight:330;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:16px 14px 20px;
+  overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+/* ambient room light + grain, tinted by mood */
+body::before{
+  content:"";position:fixed;inset:-20%;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(46% 38% at 50% 40%, color-mix(in srgb, var(--tint) 9%, transparent), transparent 70%),
+    radial-gradient(80% 60% at 50% 100%, var(--bg2), transparent 70%);
+  transition:background .9s ease;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.055;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body>*{position:relative;z-index:2}
+/* ─────────── shared shell ─────────── */
+.shell{width:min(520px,95vw)}
+.glass{
+  background:var(--glass);
+  border:1px solid var(--line);
+  border-radius:16px;
+  backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+}
+.micro{
+  font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--dim);font-weight:400;
+}
 
-  /* ---------- VECTOR CONTROL HUD BAR ---------- */
-  #hud-controls-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: min(520px, 94vw);
-    background: rgba(18, 18, 18, 0.75);
-    border: 1px solid #222222;
-    border-radius: 14px;
-    padding: 8px 16px;
-    backdrop-filter: blur(12px);
-  }
+/* ─────────── HUD ─────────── */
+#hud{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:7px 10px 7px 13px;border-radius:100px;
+}
+.hud-l,.hud-r{display:flex;align-items:center;gap:7px;min-width:0}
+.hud-l{gap:9px}
 
-  .status-indicator-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
+#status-led{
+  width:7px;height:7px;border-radius:50%;background:var(--dimmer);
+  flex:0 0 auto;transition:background .35s,box-shadow .35s;
+}
+#status-led.scanning{background:var(--cyan);box-shadow:0 0 9px var(--cyan)}
+#status-led.recognized{background:var(--green);box-shadow:0 0 11px var(--green)}
 
-  .led-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--dim);
-    transition: all 0.3s ease;
-    box-shadow: 0 0 0 0 rgba(0,0,0,0);
-  }
-  .led-dot.scanning { background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
-  .led-dot.recognized { background: var(--green); box-shadow: 0 0 10px var(--green); }
+#camera-preview-wrapper{
+  width:44px;height:32px;border-radius:7px;overflow:hidden;
+  border:1px solid var(--line2);display:none;background:#000;flex:0 0 auto;
+}
+#camera-preview-wrapper.show{display:block}
+#webcam-view{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+#face-enroll-btn{display:none}
+#face-enroll-btn.show{display:flex}
 
-  #camera-preview-wrapper {
-    width: 48px;
-    height: 36px;
-    border-radius: 6px;
-    overflow: hidden;
-    border: 1px solid #333;
-    display: none;
-    background: #000;
-  }
-  #webcam-view {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform: scaleX(-1);
-  }
+.badge{
+  display:none;align-items:center;gap:5px;
+  font-size:9px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;
+  padding:4px 9px 4px 7px;border-radius:100px;white-space:nowrap;
+}
+.badge svg{width:11px;height:11px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.badge.show{display:inline-flex}
+.hud-sep{width:1px;height:14px;background:var(--line2);flex:0 0 auto}
+#wordmark{font-weight:600;letter-spacing:.28em;color:#8C8C96;flex:0 0 auto}
+#mode-badge{background:rgba(127,227,245,.09);border:1px solid rgba(127,227,245,.22);color:var(--cyan)}
+.badge.warn{background:rgba(242,162,172,.1);border:1px solid rgba(242,162,172,.26);color:var(--pink)}
+.badge.ghost{background:rgba(240,220,160,.08);border:1px solid rgba(240,220,160,.2);color:var(--cream)}
+.ibtn{
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--line);
+  border-radius:11px;
+  width:34px;height:34px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:#9A9AA3;
+  transition:background .2s,border-color .2s,color .2s,transform .12s;
+}
+.ibtn svg{width:16px;height:16px;pointer-events:none;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ibtn:hover{color:var(--fg);border-color:var(--line2);background:rgba(255,255,255,.07)}
+.ibtn:active{transform:scale(.93)}
+.ibtn.active,.ibtn.on{background:var(--cream);border-color:var(--cream);color:#0a0a0a}
+.ibtn.accent{color:var(--cream);border-color:rgba(240,220,160,.24)}
+.ibtn.accent[aria-expanded="true"]{background:var(--cream);border-color:var(--cream);color:#0a0a0a}
+.ibtn.rec{background:var(--pink);border-color:var(--pink);color:#160b0d;animation:recPulse 1.5s ease-in-out infinite}
+@keyframes recPulse{0%,100%{box-shadow:0 0 0 0 rgba(242,162,172,.42)}60%{box-shadow:0 0 0 8px rgba(242,162,172,0)}}
+.ibtn.armed{border-color:var(--pink);color:var(--pink)}
 
-  .icon-controls-group {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: nowrap;
-  }
+/* ─────────── speech bubble ─────────── */
+#speech-bubble{
+  position:relative;padding:13px 18px 14px;text-align:center;
+  box-shadow:0 10px 34px rgba(0,0,0,.6);
+  opacity:0;transform:translateY(6px) scale(.97);pointer-events:none;
+  transition:opacity .3s,transform .3s;
+}
+#speech-bubble.show{opacity:1;transform:none;pointer-events:auto}
+#speech-bubble::after{
+  content:"";position:absolute;left:50%;bottom:-6px;
+  width:11px;height:11px;margin-left:-5.5px;transform:rotate(45deg);
+  background:var(--glass);
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+#bubble-text{
+  font-size:13.5px;line-height:1.55;letter-spacing:.005em;color:#E4E4E8;
+  max-height:5.2em;overflow-y:auto;
+}
+#screenshot-preview{
+  display:none;max-width:100%;border-radius:11px;margin-top:11px;
+  border:1px solid var(--line2);cursor:pointer;
+}
+#screenshot-preview.show{display:block}
+.typing{display:inline-flex;gap:4px;align-items:center;padding:5px 0}
+.typing i{
+  width:5px;height:5px;border-radius:50%;background:var(--cream);
+  animation:tbounce 1.35s ease-in-out infinite;
+}
+.typing i:nth-child(2){animation-delay:.18s}
+.typing i:nth-child(3){animation-delay:.36s}
+@keyframes tbounce{0%,60%,100%{transform:translateY(0);opacity:.35}30%{transform:translateY(-5px);opacity:1}}
+/* ─────────── stage ─────────── */
+#stage{
+  width:min(54vh,420px);height:min(54vh,420px);
+  /* shrinkable so an open panel on a short viewport scales the character
+     down instead of clipping the layout (body is overflow:hidden) */
+  flex:0 1 auto;min-height:0;
+  display:grid;place-items:center;
+  cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
+  margin:-6px 0 -10px;
+}
+#stage svg{width:100%;height:100%;overflow:visible;display:block}
+#emo{transition:opacity .5s ease,filter .6s ease}
+#emo.dimmed{opacity:.6;filter:saturate(.5) brightness(.78)}
 
-  .vector-icon-btn {
-    background: #181818;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    width: 38px;
-    height: 38px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: #a0a0a0;
-    flex-shrink: 0;
-  }
-  .vector-icon-btn:hover { border-color: var(--cream); color: var(--fg); }
-  .vector-icon-btn.active { background: var(--cream); color: #000; border-color: var(--cream); }
-  .vector-icon-btn svg { width: 18px; height: 18px; fill: currentColor; }
+/* state caption under the character */
+#caption{
+  height:12px;display:flex;align-items:center;gap:7px;
+  opacity:0;transition:opacity .4s ease;
+}
+#caption.show{opacity:1}
+#caption b{color:#B9B9C2;font-weight:400}
+#cap-dot{width:4px;height:4px;border-radius:50%;background:var(--tint);transition:background .5s}
 
-  /* ---------- MOBILE RESPONSIVE OPTIMIZATION ---------- */
-  @media (max-width: 520px) {
-    #hud-controls-bar {
-      padding: 6px 10px;
-      width: 96vw;
-    }
-    .icon-controls-group {
-      gap: 5px;
-    }
-    .vector-icon-btn {
-      width: 34px;
-      height: 34px;
-      border-radius: 8px;
-    }
-    .vector-icon-btn svg {
-      width: 16px;
-      height: 16px;
-    }
-    #mode-badge, #silent-badge {
-      font-size: 9px;
-      padding: 2px 6px;
-    }
-  }
+/* ─────────── dock: chat ─────────── */
+#dock{display:flex;gap:8px;align-items:center}
+#chat-input{
+  flex:1;min-width:0;
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--line);
+  border-radius:100px;padding:12px 18px;
+  color:var(--fg);font-family:inherit;font-size:13px;font-weight:330;
+  outline:none;transition:border-color .22s,background .22s;
+}
+#chat-input::placeholder{color:#5C5C64}
+#chat-input:focus{border-color:rgba(240,220,160,.4);background:rgba(255,255,255,.06)}
+#send-btn{
+  width:42px;height:42px;flex:0 0 auto;border-radius:50%;
+  background:var(--cream);border:none;cursor:pointer;color:#0a0a0a;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform .14s,box-shadow .22s;
+  box-shadow:0 0 0 0 rgba(240,220,160,0);
+}
+#send-btn svg{width:17px;height:17px;fill:currentColor}
+#send-btn:hover{box-shadow:0 0 20px rgba(240,220,160,.28)}
+#send-btn:active{transform:scale(.9)}
+/* ─────────── behaviour panel ─────────── */
+#panel{
+  overflow:hidden;max-height:0;opacity:0;
+  transition:max-height .42s cubic-bezier(.4,0,.2,1),opacity .3s ease,margin .42s;
+  margin-top:0;
+}
+#panel.open{max-height:min(224px,42vh);opacity:1;margin-top:2px}
+#panel-inner{padding:12px 13px 13px}
+#tabs{display:flex;gap:4px;margin-bottom:11px}
+#tabs button{
+  flex:1;background:transparent;border:1px solid transparent;
+  border-radius:8px;padding:6px 4px;cursor:pointer;
+  font:inherit;font-size:9px;font-weight:450;letter-spacing:.16em;
+  text-transform:uppercase;color:#5E5E66;transition:all .2s;
+}
+#tabs button:hover{color:#A5A5AE}
+#tabs button.on{color:#0a0a0a;background:var(--cream);border-color:var(--cream)}
+#chips{
+  display:flex;flex-wrap:wrap;gap:5px;
+  max-height:150px;overflow-y:auto;scrollbar-width:thin;
+}
+#chips::-webkit-scrollbar{width:3px}
+#chips::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+#chips button{
+  background:rgba(255,255,255,.035);
+  border:1px solid var(--line);
+  color:#93939C;border-radius:100px;padding:6px 11px;cursor:pointer;
+  font:inherit;font-size:10.5px;font-weight:380;letter-spacing:.03em;
+  transition:all .18s;white-space:nowrap;
+}
+#chips button:hover{color:var(--fg);border-color:var(--line2)}
+#chips button[aria-pressed="true"]{
+  color:#0a0a0a;background:var(--tint);border-color:var(--tint);font-weight:500;
+}
 
-  /* ---------- MODE BADGE ---------- */
-  #mode-badge {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .06em;
-    padding: 3px 8px;
-    border-radius: 20px;
-    background: rgba(0,243,255,0.1);
-    border: 1px solid rgba(0,243,255,0.25);
-    color: var(--cyan);
-    display: none;
-  }
-  #mode-badge.laptop { display: inline-block; }
+#footbar{display:flex;align-items:center;gap:9px;justify-content:center;margin-top:2px}
+#footbar .micro{font-size:8.5px;letter-spacing:.22em}
+#auto-dot{
+  width:5px;height:5px;border-radius:50%;background:var(--dimmer);
+  transition:background .3s,box-shadow .3s;
+}
+#auto-dot.live{background:var(--green);box-shadow:0 0 7px rgba(143,233,179,.7)}
+/* ══════════ CHARACTER ══════════ */
+.outline{fill:#fff;stroke:var(--ink);stroke-width:2.1;stroke-linejoin:round;stroke-linecap:round}
+.limb{fill:none;stroke:var(--ink);stroke-width:1.7;stroke-linecap:round}
+.spot{fill:#171717}
+.mouth{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;transition:d .12s ease}
+.blush{fill:var(--pink)}
+#blush{opacity:0;transition:opacity .35s ease}
 
-  /* ---------- SILENT MODE BADGE ---------- */
-  #silent-badge {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: .06em;
-    padding: 3px 8px;
-    border-radius: 20px;
-    background: rgba(242,162,172,0.12);
-    border: 1px solid rgba(242,162,172,0.3);
-    color: var(--pink);
-    display: none;
-    animation: silentPulse 2s ease-in-out infinite;
-  }
-  #silent-badge.on { display: inline-block; }
-  @keyframes silentPulse {
-    0%,100% { opacity: 0.7; }
-    50% { opacity: 1; }
-  }
+/* transform stack — every animated node needs an explicit box */
+#drift,#float,#peek,#bodyMove,#headTilt,#headNod,#breathe,
+.eye,.blinker,#gum,#auraRing{transform-box:view-box}
+#drift{transform-origin:100px 150px}
+#float{transform-origin:100px 150px;animation:bob 5.2s ease-in-out infinite}
+#peek{transform-origin:100px 100px;transition:transform .8s cubic-bezier(.4,0,.2,1)}
+#bodyMove{transform-origin:100px 175px;transition:transform .45s cubic-bezier(.34,1.4,.5,1)}
+#headTilt{transform-origin:100px 112px;transition:transform .5s cubic-bezier(.34,1.4,.5,1)}
+#headNod{transform-origin:100px 112px}
+#breathe{transform-origin:100px 112px;animation:breathe 3.6s ease-in-out infinite}
 
-  /* ---------- SCREENSHOT IN BUBBLE ---------- */
-  #screenshot-preview {
-    display: none;
-    max-width: 100%;
-    border-radius: 10px;
-    margin-top: 10px;
-    border: 1px solid #333;
-    cursor: pointer;
-  }
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes breathe{0%,100%{transform:scale(1,1)}50%{transform:scale(1.022,.985)}}
 
-  /* ---------- TYPING INDICATOR (silent mode) ---------- */
-  .typing-indicator {
-    display: inline-flex;
-    gap: 4px;
-    align-items: center;
-    padding: 4px 0;
-  }
-  .typing-indicator span {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: var(--cream);
-    animation: typingBounce 1.4s ease-in-out infinite;
-  }
-  .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
-  .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes typingBounce {
-    0%,60%,100% { transform: translateY(0); opacity: 0.4; }
-    30% { transform: translateY(-6px); opacity: 1; }
-  }
+/* ground shadow + ambient halo */
+#shadow{transition:opacity .5s}
+#halo{transition:opacity .8s ease}
 
-  /* ---------- SPEECH BUBBLE DIALOG ---------- */
-  #speech-bubble {
-    width: min(520px, 94vw);
-    background: rgba(20, 20, 20, 0.88);
-    border: 1px solid #282828;
-    border-radius: 16px;
-    padding: 14px 20px;
-    text-align: center;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.85);
-    backdrop-filter: blur(12px);
-    transition: all 0.3s ease;
-  }
-  #bubble-text {
-    font-size: 14px;
-    color: var(--fg);
-    line-height: 1.5;
-    letter-spacing: .02em;
-  }
+/* ─── eyes: one group per side, many stacked variants ─── */
+.eye{transition:transform .32s cubic-bezier(.34,1.3,.5,1)}
+.blinker{transition:transform .1s ease}
+#eyeL,#eyeL .blinker{transform-origin:82px 48px}
+#eyeR,#eyeR .blinker{transform-origin:127px 70px}
+.ev{opacity:0;transition:opacity .2s ease}
+.e-lid,.e-cross,.e-droop{fill:none;stroke:var(--ink);stroke-linecap:round}
+.e-lid,.e-cross{stroke-width:2.6}
+.e-droop{stroke-width:2.4}
 
-  /* ---------- ENLARGED EMO STAGE ---------- */
-  #stage{
-    width: min(62vh, 460px);
-    height: min(62vh, 460px);
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.2s ease;
-  }
-  #stage svg{width:100%;height:100%;overflow:visible;display:block}
+#emo[data-eyes="spot"]   .e-spot,
+#emo[data-eyes="closed"] .e-lid,
+#emo[data-eyes="cross"]  .e-cross,
+#emo[data-eyes="heart"]  .e-heart,
+#emo[data-eyes="star"]   .e-star,
+#emo[data-eyes="spiral"] .e-spiral,
+#emo[data-eyes="hollow"] .e-hollow,
+#emo[data-eyes="puppy"]  .e-puppy,
+#emo[data-eyes="droop"]  .e-droop,
+#emo[data-eyes="wink"]  #eyeR .e-spot,
+#emo[data-eyes="wink"]  #eyeL .e-lid{opacity:1}
+/* eye variant flourishes */
+.e-heart{fill:var(--pink);filter:drop-shadow(0 0 5px rgba(242,162,172,.9))}
+#emo[data-eyes="heart"] .e-heart{animation:beat 1.05s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}45%{transform:scale(1.17)}}
+.e-heart,.e-star,.e-spiral{transform-box:fill-box;transform-origin:center}
 
-  /* ---------- character base ---------- */
-  .outline{
-    fill:#fff;
-    stroke:var(--ink);
-    stroke-width:2.1;
-    stroke-linejoin:round;
-    stroke-linecap:round;
-  }
-  .limb{
-    fill:none;
-    stroke:var(--ink);
-    stroke-width:1.7;
-    stroke-linecap:round;
-  }
-  .spot{fill:#171717}
-  .mouth{
-    fill:none;
-    stroke:var(--ink);
-    stroke-width:2;
-    stroke-linecap:round;
-    transition:d .08s ease;
-  }
-  .blush{fill:var(--pink);opacity:0}
-  #blush{transition:opacity .3s ease}
+.e-star{fill:var(--cream);filter:drop-shadow(0 0 6px rgba(240,220,160,.95))}
+#emo[data-eyes="star"] .e-star{animation:starPulse 1.5s ease-in-out infinite}
+@keyframes starPulse{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.12) rotate(9deg)}}
 
-  /* ---------- transform layers ---------- */
-  #look, #float, #headTilt, #breathe, #bodyMove{
-    transform-box:view-box;
-  }
-  #float{transform-origin:100px 150px;animation:float 5.2s ease-in-out infinite}
-  #breathe{transform-origin:100px 112px;animation:breathe 3.6s ease-in-out infinite}
-  #headTilt{transform-origin:100px 112px;transition:transform .5s cubic-bezier(.34,1.4,.5,1)}
-  #bodyMove{transform-origin:100px 175px;transition:transform .5s cubic-bezier(.34,1.4,.5,1)}
+.e-spiral{fill:none;stroke:var(--ink);stroke-width:2.5;stroke-linecap:round}
+#emo[data-eyes="spiral"] .e-spiral{animation:spin 1.15s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-  @keyframes float{
-    0%,100%{transform:translateY(0)}
-    50%{transform:translateY(-6px)}
-  }
-  @keyframes breathe{
-    0%,100%{transform:scale(1,1)}
-    50%{transform:scale(1.022,.985)}
-  }
+.e-hollow .ring{fill:#fff;stroke:var(--ink);stroke-width:2.4}
+.e-hollow .pin{fill:var(--ink)}
+.e-puppy .ball{fill:#171717}
+.e-puppy .shine{fill:#fff;opacity:.92}
+.e-puppy .tear{fill:var(--cyan);opacity:.75}
+#emo[data-eyes="puppy"] .e-puppy .tear{animation:welling 2.4s ease-in-out infinite}
+@keyframes welling{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(1.4px) scale(1.14)}}
+.e-puppy .tear{transform-box:fill-box;transform-origin:center}
+/* the tear lives inside a <use> reference, so animate the source node directly */
+#vPuppy .tear{transform-box:fill-box;transform-origin:center;animation:welling 2.4s ease-in-out infinite}
+#shadow{transform-box:view-box;transform-origin:100px 171px}
 
-  /* eyes */
-  .eye,.eye .open{transform-box:view-box}
-  .eye{transition:transform .3s cubic-bezier(.34,1.3,.5,1)}
-  .eye .open{transition:transform .09s ease}
-  .eye .lid{fill:none;stroke:var(--ink);stroke-width:2.6;stroke-linecap:round;opacity:0;transition:opacity .18s ease}
-  .eye .cross{fill:none;stroke:var(--ink);stroke-width:2.6;stroke-linecap:round;opacity:0;transition:opacity .18s ease}
-  #eyeL{transform-origin:82px 48px}
-  #eyeR{transform-origin:127px 70px}
-  #eyeL .open{transform-origin:82px 48px}
-  #eyeR .open{transform-origin:127px 70px}
+/* ─── body motion presets (class on #emo) ─── */
+.bounce  #float{animation:bounceA .6s cubic-bezier(.3,1.5,.5,1) infinite}
+.droop   #float{animation:droopA 4.6s ease-in-out infinite}
+.slow    #breathe{animation-duration:6.4s}
+.deep    #breathe{animation:breatheDeep 7.2s ease-in-out infinite}
+.shake   #bodyMove{animation:shakeA .26s ease-in-out infinite}
+.shiver  #bodyMove{animation:shiverA .12s steps(2,end) infinite}
+.crawl   #float{animation:crawlA 2.6s ease-in-out infinite}
+.nod     #headNod{animation:nodA 3.4s ease-in-out infinite}
+.jerk    #headNod{animation:jerkA .5s cubic-bezier(.2,1.7,.4,1)}
+.bop     #headNod{animation:bopA .58s ease-in-out infinite}
+.sway    #drift{animation:swayA 6s ease-in-out infinite}
+.walk    #drift{animation:walkA 13s linear infinite}
+.woozy  #headNod{animation:wobbleA 1.9s ease-in-out infinite}
+@keyframes bounceA{0%,100%{transform:translateY(0)}40%{transform:translateY(-12px)}}
+@keyframes droopA{0%,100%{transform:translateY(3px)}50%{transform:translateY(6px)}}
+@keyframes breatheDeep{0%,100%{transform:scale(1,1)}50%{transform:scale(1.05,.955)}}
+@keyframes shakeA{0%,100%{transform:translateX(-1.7px)}50%{transform:translateX(1.7px)}}
+@keyframes shiverA{0%{transform:translate(-1px,.5px)}100%{transform:translate(1px,-.5px)}}
+@keyframes crawlA{0%,100%{transform:translate(0,4px) rotate(-1.5deg)}50%{transform:translate(0,7px) rotate(1.5deg)}}
+@keyframes nodA{
+  0%{transform:rotate(0) translateY(0)}
+  55%{transform:rotate(11deg) translateY(7px)}
+  100%{transform:rotate(0) translateY(0)}
+}
+@keyframes jerkA{0%{transform:rotate(9deg) translateY(6px)}55%{transform:rotate(-7deg) translateY(-4px)}100%{transform:rotate(0)}}
+@keyframes bopA{0%,100%{transform:rotate(-4deg) translateY(0)}50%{transform:rotate(4deg) translateY(-3px)}}
+@keyframes swayA{0%,100%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
+@keyframes walkA{
+  0%{transform:translateX(-52px) scaleX(1)}
+  46%{transform:translateX(52px) scaleX(1)}
+  50%{transform:translateX(52px) scaleX(-1)}
+  96%{transform:translateX(-52px) scaleX(-1)}
+  100%{transform:translateX(-52px) scaleX(1)}
+}
+@keyframes wobbleA{0%,100%{transform:rotate(-13deg)}50%{transform:rotate(13deg)}}
 
-  .closed .open{opacity:0}
-  .closed .lid{opacity:1}
-  .xeyes .open{opacity:0}
-  .xeyes .cross{opacity:1}
+/* turned away (sulking / shy) */
+.turn #bodyMove{transform:rotate(-7deg) translateX(-5px)}
+/* click squash + wake pop */
+.squish #breathe{animation:squish .46s cubic-bezier(.3,1.4,.5,1)}
+@keyframes squish{
+  0%{transform:scale(1,1)}30%{transform:scale(1.11,.87)}
+  62%{transform:scale(.96,1.06)}100%{transform:scale(1,1)}
+}
+.stretchUp #breathe{animation:stretchUp 1.5s cubic-bezier(.35,1.2,.4,1)}
+@keyframes stretchUp{
+  0%{transform:scale(1,1)}
+  35%{transform:scale(.93,1.12) translateY(-5px)}
+  70%{transform:scale(1.04,.97)}
+  100%{transform:scale(1,1)}
+}
+/* ─── forms: normal body vs curled ball ─── */
+#bodyForm,#curlForm{transition:opacity .45s ease}
+#curlForm{opacity:0}
+#emo.curled #bodyForm,#emo.curled #headTilt{opacity:0}
+#emo.curled #curlForm{opacity:1}
+#emo.curled #shadow{transform:translateY(6px) scale(1.1,.7)}
+#bodyForm,#headTilt{transition:opacity .45s ease}
 
-  /* ---------- fx ---------- */
-  .fx{opacity:0;transition:opacity .28s ease;pointer-events:none}
-  .fx.on{opacity:1}
-  .cream{fill:var(--cream)}
-  .creamStroke{fill:none;stroke:var(--cream);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .pinkFill{fill:var(--pink)}
-  .glyph{
-    fill:#fff;font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-    font-weight:300;text-anchor:middle;
-  }
+/* ─── overlays: fx + props share the .lay switch ─── */
+.lay{opacity:0;transition:opacity .3s ease;pointer-events:none}
+.lay.on{opacity:1}
+.cream{fill:var(--cream)}
+.creamS{fill:none;stroke:var(--cream);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.pinkF{fill:var(--pink)}
+.cyanS{fill:none;stroke:var(--cyan);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.cyanF{fill:var(--cyan)}
+.inkS{fill:none;stroke:var(--ink);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.glyph{fill:#fff;font-family:"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;font-weight:300;text-anchor:middle}
+.glow{filter:drop-shadow(0 0 5px currentColor)}
 
-  .on .tw{animation:tw 1.9s ease-in-out infinite}
-  .on .tw2{animation:tw 1.9s ease-in-out .55s infinite}
-  .on .tw3{animation:tw 1.9s ease-in-out 1.1s infinite}
-  @keyframes tw{0%,100%{opacity:.25;transform:scale(.7)}50%{opacity:1;transform:scale(1.08)}}
-  .tw,.tw2,.tw3{transform-box:fill-box;transform-origin:center}
+/* generic motion utilities used inside overlays */
+.tw,.tw2,.tw3,.pop,.rise,.rise2,.rise3,.jit,.rot,.bobY,.grow,.flick{transform-box:fill-box;transform-origin:center}
+.on .tw {animation:twinkle 1.9s ease-in-out infinite}
+.on .tw2{animation:twinkle 1.9s ease-in-out .55s infinite}
+.on .tw3{animation:twinkle 1.9s ease-in-out 1.1s infinite}
+@keyframes twinkle{0%,100%{opacity:.22;transform:scale(.68)}50%{opacity:1;transform:scale(1.1)}}
 
-  .on .pop{animation:pop 1.4s ease-in-out infinite}
-  @keyframes pop{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
-  .pop{transform-box:fill-box}
+.on .pop{animation:popY 1.4s ease-in-out infinite}
+@keyframes popY{0%,100%{transform:translateY(0)}50%{transform:translateY(-3.5px)}}
 
-  .on .dot1{animation:dots 1.5s ease-in-out infinite}
-  .on .dot2{animation:dots 1.5s ease-in-out .22s infinite}
-  .on .dot3{animation:dots 1.5s ease-in-out .44s infinite}
-  @keyframes dots{0%,100%{opacity:.18}45%{opacity:1}}
+.on .jit{animation:jitA .34s steps(2,end) infinite}
+@keyframes jitA{0%{transform:translate(0,0)}100%{transform:translate(1.3px,-1.3px)}}
 
-  .on .z1{animation:rise 3s ease-out infinite}
-  .on .z2{animation:rise 3s ease-out 1s infinite}
-  .on .z3{animation:rise 3s ease-out 2s infinite}
-  @keyframes rise{
-    0%{opacity:0;transform:translate(0,4px) scale(.6)}
-    25%{opacity:1}
-    100%{opacity:0;transform:translate(9px,-22px) scale(1.1)}
-  }
-  .z1,.z2,.z3{transform-box:fill-box}
+.on .rot{animation:spin 5s linear infinite}
+.on .bobY{animation:popY 2.4s ease-in-out infinite}
+.on .flick{animation:flick .9s steps(3,end) infinite}
+@keyframes flick{0%,100%{opacity:1}45%{opacity:.35}}
+/* rising things: zzz, hearts, notes, sparks */
+.on .rise {animation:riseA 3s ease-out infinite}
+.on .rise2{animation:riseA 3s ease-out 1s infinite}
+.on .rise3{animation:riseA 3s ease-out 2s infinite}
+@keyframes riseA{
+  0%{opacity:0;transform:translate(0,5px) scale(.55)}
+  22%{opacity:1}
+  100%{opacity:0;transform:translate(10px,-24px) scale(1.12)}
+}
+.on .fl1{animation:floatUp 2.6s ease-out infinite}
+.on .fl2{animation:floatUp 2.6s ease-out .9s infinite}
+.on .fl3{animation:floatUp 2.6s ease-out 1.8s infinite}
+.fl1,.fl2,.fl3{transform-box:fill-box;transform-origin:center}
+@keyframes floatUp{
+  0%{opacity:0;transform:translateY(6px) scale(.5)}
+  28%{opacity:1;transform:translateY(0) scale(1)}
+  100%{opacity:0;transform:translateY(-19px) scale(.85)}
+}
 
-  .on .heart1{animation:rise2 2.6s ease-out infinite}
-  .on .heart2{animation:rise2 2.6s ease-out 1.3s infinite}
-  @keyframes rise2{
-    0%{opacity:0;transform:translateY(4px) scale(.5)}
-    30%{opacity:1;transform:translateY(-2px) scale(1)}
-    100%{opacity:0;transform:translateY(-16px) scale(.8)}
-  }
-  .heart1,.heart2{transform-box:fill-box}
+/* dots "..." */
+.on .d1{animation:dotFade 1.5s ease-in-out infinite}
+.on .d2{animation:dotFade 1.5s ease-in-out .22s infinite}
+.on .d3{animation:dotFade 1.5s ease-in-out .44s infinite}
+@keyframes dotFade{0%,100%{opacity:.16}45%{opacity:1}}
 
-  .on .jitter{animation:jitter .35s steps(2,end) infinite}
-  @keyframes jitter{0%{transform:translate(0,0)}100%{transform:translate(1.2px,-1.2px)}}
-  .jitter{transform-box:fill-box}
+/* gum bubble grow → pop */
+#gum{transform-origin:104px 96px;opacity:0}
+#gum.blow{opacity:1;animation:gumGrow 3.4s ease-in forwards}
+@keyframes gumGrow{
+  0%{transform:scale(.1);opacity:1}
+  75%{transform:scale(1);opacity:1}
+  92%{transform:scale(1.22);opacity:1}
+  96%{transform:scale(1.5);opacity:0}
+  100%{transform:scale(.1);opacity:0}
+}
+#burst{opacity:0}
+#burst.go{animation:burstA .45s ease-out}
+@keyframes burstA{0%{opacity:1;transform:scale(.4)}100%{opacity:0;transform:scale(1.8)}}
+#burst{transform-box:view-box;transform-origin:104px 96px}
+/* juggling code cubes */
+.on #cube1{animation:jug1 1.35s ease-in-out infinite}
+.on #cube2{animation:jug1 1.35s ease-in-out .45s infinite}
+.on #cube3{animation:jug1 1.35s ease-in-out .9s infinite}
+#cube1,#cube2,#cube3{transform-box:fill-box;transform-origin:center}
+@keyframes jug1{
+  0%{transform:translate(-13px,5px) rotate(0)}
+  50%{transform:translate(0,-20px) rotate(180deg)}
+  100%{transform:translate(13px,5px) rotate(360deg)}
+}
 
-  .on .spin{animation:spin 5s linear infinite}
-  @keyframes spin{to{transform:rotate(360deg)}}
-  .spin{transform-box:fill-box;transform-origin:center}
+/* wiping cloth */
+.on #cloth{animation:wipeA 1.5s ease-in-out infinite}
+#cloth{transform-box:fill-box;transform-origin:center}
+@keyframes wipeA{
+  0%,100%{transform:translate(-19px,4px) rotate(-11deg)}
+  50%{transform:translate(19px,-6px) rotate(11deg)}
+}
+.on .squeak{animation:squeakA 1.5s ease-in-out infinite}
+@keyframes squeakA{0%,70%{opacity:0}80%{opacity:1}100%{opacity:0}}
 
-  /* body motion presets */
-  .shake #bodyMove{animation:shake .28s ease-in-out infinite}
-  @keyframes shake{0%,100%{transform:translateX(-1.6px)}50%{transform:translateX(1.6px)}}
-  .bounce #float{animation:bounceA .62s cubic-bezier(.3,1.5,.5,1) infinite}
-  @keyframes bounceA{0%,100%{transform:translateY(0)}40%{transform:translateY(-11px)}}
-  .droop #float{animation:droop 4.6s ease-in-out infinite}
-  @keyframes droop{0%,100%{transform:translateY(3px)}50%{transform:translateY(5px)}}
-  .slow #breathe{animation-duration:6.2s}
+/* lightning charge aura */
+#auraRing{transform-origin:100px 100px}
+.on #auraRing{animation:auraPulse 1.7s ease-in-out infinite}
+@keyframes auraPulse{
+  0%,100%{opacity:.18;transform:scale(.97)}
+  50%{opacity:.6;transform:scale(1.05)}
+}
+.on .bolt1{animation:boltFlash 1.1s steps(2,end) infinite}
+.on .bolt2{animation:boltFlash 1.1s steps(2,end) .35s infinite}
+.on .bolt3{animation:boltFlash 1.1s steps(2,end) .7s infinite}
+@keyframes boltFlash{0%,55%{opacity:0}60%,85%{opacity:1}100%{opacity:0}}
 
-  /* click squash */
-  .squish #breathe{animation:squish .45s cubic-bezier(.3,1.4,.5,1)}
-  @keyframes squish{
-    0%{transform:scale(1,1)}
-    30%{transform:scale(1.1,.88)}
-    60%{transform:scale(.96,1.06)}
-    100%{transform:scale(1,1)}
-  }
+/* rain */
+.on .drop{animation:fallA 1.15s linear infinite}
+.drop{transform-box:fill-box}
+@keyframes fallA{0%{opacity:0;transform:translateY(-14px)}20%{opacity:.85}100%{opacity:0;transform:translateY(46px)}}
 
-  /* ---------- CHAT INPUT CONTAINER ---------- */
-  #chat-container {
-    display: flex;
-    gap: 8px;
-    width: min(520px, 94vw);
-    margin-top: 2px;
-  }
-  #chat-input {
-    flex: 1;
-    background: #121212;
-    border: 1px solid #2a2a2a;
-    border-radius: 10px;
-    padding: 12px 16px;
-    color: #f2f2f2;
-    font-family: inherit;
-    font-size: 13px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  #chat-input:focus { border-color: var(--cream); }
+/* wifi search arcs */
+.on .arc1{animation:arcFade 1.6s ease-out infinite}
+.on .arc2{animation:arcFade 1.6s ease-out .35s infinite}
+.on .arc3{animation:arcFade 1.6s ease-out .7s infinite}
+@keyframes arcFade{0%{opacity:0}25%{opacity:.95}70%{opacity:0}100%{opacity:0}}
+.on #dish{animation:scanA 3.4s ease-in-out infinite}
+#dish{transform-box:view-box;transform-origin:141px 104px}
+@keyframes scanA{0%,100%{transform:rotate(-22deg)}50%{transform:rotate(24deg)}}
+/* holo phone / book glow */
+.holoScreen{fill:var(--cyan);opacity:.16}
+.on .holoScreen{animation:holoFlick 2.6s ease-in-out infinite}
+@keyframes holoFlick{0%,100%{opacity:.13}50%{opacity:.3}}
+.on .holoLine{animation:holoScan 2.2s linear infinite}
+.holoLine{transform-box:fill-box}
+@keyframes holoScan{0%{opacity:0;transform:translateY(0)}30%{opacity:.9}100%{opacity:0;transform:translateY(9px)}}
 
-  #send-btn {
-    background: var(--cream);
-    border: none;
-    border-radius: 10px;
-    padding: 0 20px;
-    color: #000;
-    font-weight: 600;
-    font-size: 12px;
-    letter-spacing: .12em;
-    cursor: pointer;
-    transition: transform 0.15s, background-color 0.2s;
-  }
-  #send-btn:active { transform: scale(0.94); }
+/* music note drift */
+.on .note1{animation:noteA 2.3s ease-out infinite}
+.on .note2{animation:noteA 2.3s ease-out .78s infinite}
+.on .note3{animation:noteA 2.3s ease-out 1.56s infinite}
+.note1,.note2,.note3{transform-box:fill-box;transform-origin:center}
+@keyframes noteA{
+  0%{opacity:0;transform:translate(0,4px) rotate(-8deg) scale(.6)}
+  25%{opacity:1}
+  100%{opacity:0;transform:translate(13px,-23px) rotate(12deg) scale(1)}
+}
+.on .cup{animation:cupGlow 1.16s ease-in-out infinite}
+@keyframes cupGlow{0%,100%{opacity:.5}50%{opacity:1}}
 
-  @media (prefers-reduced-motion:reduce){
-    *{animation:none!important}
-  }
+/* magnifier sweep */
+.on #magnify{animation:magA 3.6s ease-in-out infinite}
+#magnify{transform-box:fill-box;transform-origin:center}
+@keyframes magA{0%,100%{transform:translate(-6px,2px) rotate(-8deg)}50%{transform:translate(8px,-4px) rotate(8deg)}}
+
+/* peeking from the edge */
+/* peek slides the whole rig down and to the side so he leans in from the corner of
+   the frame — the SVG root clips the rest, which is what sells "peeking around". */
+#emo.peeking #peek{transform:translate(46px,62px) rotate(-7deg)}
+
+@media (max-width:560px){
+  #stage{width:min(46vh,330px);height:min(46vh,330px)}
+  #bubble-text{font-size:12.5px}
+  .ibtn{width:31px;height:31px;border-radius:10px}
+  .ibtn svg{width:15px;height:15px}
+  #panel.open{max-height:200px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{animation:none!important;transition-duration:.01ms!important}
+}
 </style>
 </head>
 <body>
 
-<!-- MINIMALIST VECTOR CONTROL HUD BAR -->
-<div id="hud-controls-bar">
-  <div class="status-indicator-group">
-    <div id="status-led" class="led-dot" title="Vision & System Status"></div>
-    <div id="camera-preview-wrapper">
-      <video id="webcam-view" autoplay playsinline muted></video>
+<!-- ================= HUD ================= -->
+<header id="hud" class="glass shell">
+  <div class="hud-l">
+    <span id="status-led" title="link status"></span>
+    <span class="micro" id="wordmark">EMO</span>
+    <span class="hud-sep"></span>
+
+    <span id="mode-badge" class="badge show">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.6" y="2.6" width="12.8" height="8.4" rx="1.3"/><path d="M.8 13.4h14.4"/></svg>
+      <b>LAPTOP</b>
+    </span>
+
+    <span id="silent-badge" class="badge warn">
+      <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 6h2.4L7.6 3.2v9.6L4.4 10H2z"/><path d="M10.4 6.4l3.2 3.2M13.6 6.4l-3.2 3.2"/></svg>
+      <b>SILENT</b>
+    </span>
+
+    <span id="ctx-badge" class="badge ghost">
+      <svg viewBox="0 0 16 16" aria-hidden="true" id="ctx-icon"></svg>
+      <b id="ctx-label"></b>
+    </span>
+  </div>
+
+  <div class="hud-r">
+    <div id="camera-preview-wrapper"><video id="webcam-view" autoplay muted playsinline></video></div>
+    <canvas id="webcam-canvas" width="320" height="240" hidden></canvas>
+    <button id="silent-toggle-btn" class="ibtn" title="Silent mode" aria-label="Toggle silent mode">
+      <svg viewBox="0 0 20 20"><path d="M3 7.6h2.9L9.6 4v12L5.9 12.4H3z"/><path d="M13 7.4c1.5 1.5 1.5 3.7 0 5.2"/><path d="M15.4 5.4c2.7 2.7 2.7 6.5 0 9.2"/></svg>
+    </button>
+    <button id="mic-toggle-btn" class="ibtn" title="Listen" aria-label="Toggle microphone">
+      <svg viewBox="0 0 20 20"><rect x="7.4" y="2.4" width="5.2" height="9.2" rx="2.6"/><path d="M4.6 9.6a5.4 5.4 0 0 0 10.8 0"/><path d="M10 15v2.6M7 17.6h6"/></svg>
+    </button>
+    <button id="cam-toggle-btn" class="ibtn" title="Camera" aria-label="Toggle camera">
+      <svg viewBox="0 0 20 20"><path d="M2.4 6.6A1.6 1.6 0 0 1 4 5h3l1.2-1.6h3.6L13 5h3a1.6 1.6 0 0 1 1.6 1.6v7A1.6 1.6 0 0 1 16 15.2H4a1.6 1.6 0 0 1-1.6-1.6z"/><circle cx="10" cy="10.1" r="3"/></svg>
+    </button>
+    <button id="screenshot-btn" class="ibtn" title="Look at my screen" aria-label="Capture screen">
+      <svg viewBox="0 0 20 20"><rect x="2.2" y="3.4" width="15.6" height="10.4" rx="1.6"/><path d="M6.4 16.6h7.2"/><path d="M6 10.6l2.6-2.6 2 2 2.4-3 1.4 1.8"/></svg>
+    </button>
+    <button id="face-enroll-btn" class="ibtn" title="Learn a face" aria-label="Enroll face">
+      <svg viewBox="0 0 20 20"><circle cx="10" cy="7.4" r="3.2"/><path d="M4 16.8c.6-3 3-4.6 6-4.6s5.4 1.6 6 4.6"/></svg>
+    </button>
+    <button id="memory-sync-btn" class="ibtn" title="Sync memory" aria-label="Sync memory">
+      <svg viewBox="0 0 20 20"><path d="M16.4 8.6A6.6 6.6 0 0 0 4.3 6.2"/><path d="M3.6 11.4a6.6 6.6 0 0 0 12.1 2.4"/><path d="M4.4 3.2v3h3M15.6 16.8v-3h-3"/></svg>
+    </button>
+    <button id="panel-btn" class="ibtn accent" title="Behaviours" aria-label="Open behaviour panel" aria-expanded="false">
+      <svg viewBox="0 0 20 20"><path d="M3 6.2h14M3 10h14M3 13.8h14"/><circle cx="7" cy="6.2" r="1.7" fill="currentColor" stroke="none"/><circle cx="13" cy="10" r="1.7" fill="currentColor" stroke="none"/><circle cx="8.6" cy="13.8" r="1.7" fill="currentColor" stroke="none"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- ================= SPEECH BUBBLE ================= -->
+<div id="speech-bubble" class="glass shell" role="status" aria-live="polite">
+  <div id="bubble-text"></div>
+  <span id="typing" class="typing" hidden><i></i><i></i><i></i></span>
+  <img id="screenshot-preview" alt="What Emo can see on your screen">
+</div>
+
+<!-- ================= STAGE ================= -->
+<main id="stage" aria-label="Emo, your companion">
+<svg id="emo" viewBox="0 0 200 200" data-eyes="spot" data-mouth="small" role="img" aria-label="Emo">
+<defs>
+  <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+    <feGaussianBlur stdDeviation="2.4" result="b"/>
+    <feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+  </filter>
+  <filter id="soft2" x="-80%" y="-80%" width="260%" height="260%">
+    <feGaussianBlur stdDeviation="4.2"/>
+  </filter>
+  <radialGradient id="gAura" cx="50%" cy="50%" r="50%">
+    <stop offset="55%" stop-color="#7FE3F5" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#7FE3F5" stop-opacity=".55"/>
+  </radialGradient>
+  <radialGradient id="gWarm" cx="50%" cy="50%" r="50%">
+    <stop offset="40%" stop-color="#F2A2AC" stop-opacity=".38"/>
+    <stop offset="100%" stop-color="#F2A2AC" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="gHolo" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0" stop-color="#7FE3F5" stop-opacity=".55"/>
+    <stop offset="1" stop-color="#7FE3F5" stop-opacity=".12"/>
+  </linearGradient>
+
+  <!-- eye variants, authored at origin for the left eye's radii -->
+  <ellipse id="vSpot" rx="11" ry="12.4" fill="#171717"/>
+  <path id="vLid" d="M-11 -2 q11 10 22 0" fill="none" stroke="#141414" stroke-width="2.4" stroke-linecap="round"/>
+  <g id="vCross" fill="none" stroke="#141414" stroke-width="2.6" stroke-linecap="round">
+    <path d="M-7 -7 l14 14"/><path d="M7 -7 l-14 14"/>
+  </g>
+  <path id="vHeart" fill="#F2A2AC" d="M0 8.6 C-9.8 1.6 -11 -5.6 -6.1 -8.6 C-2.4 -10.7 0 -7.7 0 -5.6 C0 -7.7 2.4 -10.7 6.1 -8.6 C11 -5.6 9.8 1.6 0 8.6 Z"/>
+  <path id="vStar" fill="#F0DCA0" d="M0 -11 L2.7 -3.7 L10.5 -3.4 L4.4 1.4 L6.5 8.9 L0 4.6 L-6.5 8.9 L-4.4 1.4 L-10.5 -3.4 L-2.7 -3.7 Z"/>
+  <path id="vSpiral" fill="none" stroke="#141414" stroke-width="2.2" stroke-linecap="round"
+    d="M0 .4 C1.7 .2 2.8 1.6 2.4 3.1 C1.8 5.3 -.9 6.2 -3.1 5.2 C-6 4 -7.2 .3 -5.6 -2.6 C-3.7 -6.1 1 -7.5 4.7 -5.5 C9 -3.2 10.4 2.3 8 6.6"/>
+  <g id="vHollow">
+    <ellipse rx="11.4" ry="12.8" fill="#FBFBFB" stroke="#141414" stroke-width="2.4"/>
+    <ellipse cy="1.4" rx="2.6" ry="3" fill="#171717"/>
+  </g>
+  <g id="vPuppy">
+    <ellipse rx="12.2" ry="13.6" fill="#171717"/>
+    <ellipse cx="-3.8" cy="-4.8" rx="3.5" ry="4.1" fill="#FBFBFB" opacity=".95"/>
+    <ellipse cx="4.2" cy="3.2" rx="1.8" ry="2.1" fill="#FBFBFB" opacity=".55"/>
+    <g transform="translate(6.6 11)"><path class="tear" d="M0 0 c2.6 3.4 2.6 5.4 0 5.4 c-2.6 0 -2.6 -2 0 -5.4 Z" fill="#7FE3F5" opacity=".85"/></g>
+  </g>
+  <g id="vDroop">
+    <path d="M-11 -2.6 Q-11 10.2 0 10.2 Q11 10.2 11 -2.6 Z" fill="#171717"/>
+    <path d="M-11.8 -2.6 q11.8 -3.6 23.6 0" fill="none" stroke="#141414" stroke-width="2.2" stroke-linecap="round"/>
+  </g>
+  <!-- shared glyphs (all hand-drawn vector: no emoji anywhere) -->
+  <path id="gStar" d="M0 -7 L1.75 -2.4 L6.65 -2.15 L2.8 .9 L4.1 5.65 L0 2.9 L-4.1 5.65 L-2.8 .9 L-6.65 -2.15 L-1.75 -2.4 Z"/>
+  <path id="gSpark" d="M0 -8 C1.3 -2.6 2.6 -1.3 8 0 C2.6 1.3 1.3 2.6 0 8 C-1.3 2.6 -2.6 1.3 -8 0 C-2.6 -1.3 -1.3 -2.6 0 -8 Z"/>
+  <path id="gHeart" d="M0 6.6 C-7.6 1.2 -8.5 -4.4 -4.7 -6.7 C-1.9 -8.4 0 -6 0 -4.4 C0 -6 1.9 -8.4 4.7 -6.7 C8.5 -4.4 7.6 1.2 0 6.6 Z"/>
+  <path id="gNote" d="M-1 6.2 A2.6 2.2 0 1 0 2.2 4.4 V-6.4 l5 -1.6 v2.9 l-5 1.6"/>
+  <path id="gBolt" d="M1.6 -9 L-4.6 1.1 H-.3 L-1.9 9 L4.9 -1.6 H.4 Z"/>
+  <path id="gDrop" d="M0 -7.4 c3.9 5 4.9 7.6 0 7.6 c-4.9 0 -3.9 -2.6 0 -7.6 Z"/>
+  <path id="gQ" d="M-3.6 -4.6 a3.7 3.7 0 1 1 3.9 4.5 v2.2" fill="none"/>
+  <circle id="gQd" cy="6.2" r="1.35"/>
+  <path id="gBang" d="M-1.35 -7.4 h2.7 l-.6 9 h-1.5 Z"/>
+  <circle id="gBangd" cy="5.4" r="1.35"/>
+  <path id="gCube" d="M0 -6.4 L5.7 -3.2 V3.2 L0 6.4 L-5.7 3.2 V-3.2 Z M0 -6.4 V0 M0 0 L5.7 -3.2 M0 0 L-5.7 -3.2" fill="none"/>
+  <path id="gZ" d="M-4.4 -4.4 h8.8 l-8.8 8.8 h8.8" fill="none"/>
+</defs>
+
+<!-- ambient halo + contact shadow -->
+<ellipse id="halo" cx="100" cy="98" rx="86" ry="86" fill="url(#gWarm)" opacity="0"/>
+<ellipse id="shadow" cx="100" cy="171" rx="30" ry="5.4" fill="#7FE3F5" opacity=".18"/>
+
+<g id="drift">
+ <g id="float">
+  <g id="peek">
+   <g id="bodyMove">
+
+    <!-- charging aura -->
+    <g id="auraWrap" class="lay" data-lay="charge">
+      <circle id="auraRing" cx="100" cy="100" r="86" fill="none" stroke="url(#gAura)" stroke-width="5"/>
+    </g>
+    <!-- lovesick warm halo -->
+    <g class="lay" data-lay="love"><circle cx="100" cy="106" r="70" fill="url(#gWarm)"/></g>
+
+    <!-- ============ BODY ============ -->
+    <g id="bodyForm">
+      <path class="outline" d="M85.5 102 C81 115 78.5 140 78 165 q3.2 5 6.5 0 q3.2 5 6.5 0 q3.2 5 6.5 0 L98 141 C98 137 102.6 137 102.6 141 L103.5 165 q3.2 5 6.5 0 q3.2 5 6.5 0 q3.2 5 6.5 0 C122.5 140 119.5 115 115 102 Z"/>
+      <path class="limb" d="M88 105 C83 116 81.5 132 82.5 150"/>
+      <path class="limb" d="M112.5 105 C117.5 116 119 132 118 150"/>
+      <!-- articulated arm, used by thinking / shh / stretch / props -->
+      <g id="armWrap"><path id="arm" class="outline" d="M89 113 C84.5 122 84 134 87.5 141.5 C90.5 147 96 146.5 97.5 140.5 C99 134 96 124 93.5 113 Z"/><path class="limb" d="M92.5 122 C90.5 129 90.5 135.5 92 140"/></g>
+    </g>
+
+    <!-- ============ CURLED BALL FORM ============ -->
+    <g id="curlForm">
+      <path class="outline" d="M100 118 C126 118 143 133 143 150 C143 164 124 172 100 172 C76 172 57 164 57 150 C57 133 74 118 100 118 Z"/>
+      <path class="limb" d="M78 168 q7 -6 14 0 q7 -6 14 0"/>
+      <path class="mouth" d="M84 142 q8 7 16 0"/>
+      <path class="mouth" d="M112 145 q7 6 14 0"/>
+      <path class="mouth" d="M97 158 q5 4 10 -1"/>
+      <ellipse class="blush" cx="76" cy="152" rx="7" ry="3.4" opacity=".8"/>
+      <ellipse class="blush" cx="122" cy="154" rx="7" ry="3.4" opacity=".8"/>
+    </g>
+    <!-- ============ HEAD ============ -->
+    <g id="headTilt"><g id="headNod"><g id="breathe">
+      <path class="outline" d="M100 21 C131 20.5 152.5 40 153 66.5 C153.5 92.5 131 113.5 100.5 113.5 C70 113.5 48 94.5 47.5 68 C47 41.5 69 21.5 100 21 Z"/>
+
+      <g id="blush">
+        <ellipse class="blush" cx="76" cy="95" rx="9.5" ry="4.8"/>
+        <ellipse class="blush" cx="128" cy="95" rx="9.5" ry="4.8"/>
+      </g>
+
+      <g id="eyeL" class="eye"><g class="gaze"><g class="blinker"><g transform="translate(82 48)">
+        <use class="ev e-spot"   href="#vSpot"/>
+        <use class="ev e-lid"    href="#vLid"/>
+        <use class="ev e-cross"  href="#vCross"/>
+        <use class="ev e-heart"  href="#vHeart"/>
+        <use class="ev e-star"   href="#vStar"/>
+        <use class="ev e-spiral" href="#vSpiral"/>
+        <use class="ev e-hollow" href="#vHollow"/>
+        <use class="ev e-puppy"  href="#vPuppy"/>
+        <use class="ev e-droop"  href="#vDroop"/>
+      </g></g></g></g>
+
+      <g id="eyeR" class="eye"><g class="gaze"><g class="blinker"><g transform="translate(127 70) scale(1.16)">
+        <use class="ev e-spot"   href="#vSpot"/>
+        <use class="ev e-lid"    href="#vLid"/>
+        <use class="ev e-cross"  href="#vCross"/>
+        <use class="ev e-heart"  href="#vHeart"/>
+        <use class="ev e-star"   href="#vStar"/>
+        <use class="ev e-spiral" href="#vSpiral"/>
+        <use class="ev e-hollow" href="#vHollow"/>
+        <use class="ev e-puppy"  href="#vPuppy"/>
+        <use class="ev e-droop"  href="#vDroop"/>
+      </g></g></g></g>
+
+      <ellipse id="spot3" class="spot" cx="72" cy="82" rx="5.2" ry="5.8"/>
+      <path id="mouth" class="mouth" d="M97 90 q5.5 5.5 11 0"/>
+
+      <!-- cute round glasses (night-owl reading) -->
+      <g id="glasses" class="lay" data-lay="glasses" fill="none" stroke="#F0DCA0" stroke-width="2.1" stroke-linecap="round">
+        <circle cx="82" cy="48" r="16.5"/>
+        <circle cx="127" cy="70" r="18.5"/>
+        <path d="M96 55 q7 4 13 7"/>
+        <path d="M65.6 45 q-8 -3 -12 -8"/>
+        <path d="M145 78 q7 3 10 9"/>
+        <ellipse cx="76" cy="41" rx="4.6" ry="3" fill="#F0DCA0" opacity=".2" stroke="none"/>
+        <ellipse cx="121" cy="62" rx="5" ry="3.2" fill="#F0DCA0" opacity=".2" stroke="none"/>
+      </g>
+      <!-- neon headphones -->
+      <g id="cans" class="lay" data-lay="cans">
+        <path class="cyanS glow" style="color:#7FE3F5;stroke-width:4" d="M52 68 C52 33 74 15 100 15 C126 15 149 33 149 68"/>
+        <g class="cup"><rect x="41" y="58" width="16" height="26" rx="7" fill="#7FE3F5" opacity=".92"/></g>
+        <g class="cup"><rect x="144" y="60" width="16" height="26" rx="7" fill="#7FE3F5" opacity=".92"/></g>
+        <rect x="44.5" y="63" width="9" height="16" rx="4.5" fill="#0b0b0f" opacity=".45"/>
+        <rect x="147.5" y="65" width="9" height="16" rx="4.5" fill="#0b0b0f" opacity=".45"/>
+      </g>
+
+      <!-- quiet-mode headband -->
+      <g id="band" class="lay" data-lay="band">
+        <path d="M67 33 C79 27 121 25 133 29" fill="none" stroke="#F2A2AC" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="100" cy="27.9" r="4.4" fill="#0b0b0f" stroke="#F2A2AC" stroke-width="1.8"/>
+        <path class="fl1" d="M133 29 C143 27 149 32 146 39" fill="none" stroke="#F2A2AC" stroke-width="4.6" stroke-linecap="round"/>
+        <path class="fl2" d="M134 32 C145 34 149 40 144 46" fill="none" stroke="#F2A2AC" stroke-width="3.6" stroke-linecap="round"/>
+      </g>
+
+      <!-- bubblegum, anchored at the mouth -->
+      <g id="gumWrap"><circle id="gum" cx="104" cy="96" r="13" fill="#F2A2AC" opacity=".85"/></g>
+      <g id="burstWrap" class="lay" data-lay="burst">
+        <g id="burst" class="cyanS" style="stroke:#F2A2AC">
+          <path d="M104 96 l-16 -8"/><path d="M104 96 l16 -8"/><path d="M104 96 l-13 11"/>
+          <path d="M104 96 l13 11"/><path d="M104 96 l0 -17"/><path d="M104 96 l0 17"/>
+        </g>
+      </g>
+
+    </g></g></g><!-- /breathe /headNod /headTilt -->
+    <!-- ============ OVERLAYS / PROPS ============ -->
+    <g id="fx">
+
+      <!-- sleeping Z's -->
+      <g class="lay" data-lay="zzz">
+        <g transform="translate(150 46)"><use class="rise creamS" href="#gZ" style="stroke-width:2.6"/></g>
+        <g transform="translate(161 34) scale(.78)"><use class="rise2 creamS" href="#gZ"/></g>
+        <g transform="translate(170 24) scale(.58)"><use class="rise3 creamS" href="#gZ"/></g>
+      </g>
+
+      <!-- happy sparkle -->
+      <g class="lay" data-lay="sparkle">
+        <g transform="translate(160 44)"><use class="tw cream" href="#gSpark"/></g>
+        <g transform="translate(40 60) scale(.72)"><use class="tw2 cream" href="#gSpark"/></g>
+        <g transform="translate(150 96) scale(.55)"><use class="tw3 cream" href="#gSpark"/></g>
+      </g>
+
+      <!-- excited burst -->
+      <g class="lay" data-lay="excite">
+        <g transform="translate(158 38)"><use class="tw cream glow" style="color:#F0DCA0" href="#gStar"/></g>
+        <g transform="translate(36 52)"><use class="tw2 cream glow" style="color:#F0DCA0" href="#gStar"/></g>
+        <g transform="translate(166 84) scale(.8)"><use class="tw3 cream" href="#gSpark"/></g>
+        <g class="creamS" style="stroke-width:2.6">
+          <path class="tw" d="M100 8 v-6"/><path class="tw2" d="M62 14 l-4 -5"/><path class="tw3" d="M138 14 l4 -5"/>
+        </g>
+      </g>
+
+      <!-- confused question mark -->
+      <g class="lay" data-lay="question">
+        <g transform="translate(158 32) scale(1.5)">
+          <use class="bobY creamS" href="#gQ" style="stroke-width:2.4"/>
+          <use class="bobY cream" href="#gQd"/>
+        </g>
+      </g>
+
+      <!-- thinking dots -->
+      <g class="lay" data-lay="dots" fill="#F0DCA0">
+        <circle class="d1" cx="158" cy="34" r="3"/>
+        <circle class="d2" cx="168" cy="34" r="3"/>
+        <circle class="d3" cx="178" cy="34" r="3"/>
+      </g>
+
+      <!-- surprise bang -->
+      <g class="lay" data-lay="bang">
+        <g transform="translate(160 34) scale(1.5)">
+          <use class="pop cream" href="#gBang"/><use class="pop cream" href="#gBangd"/>
+        </g>
+      </g>
+      <!-- sad tears -->
+      <g class="lay" data-lay="tears" fill="#7FE3F5" opacity=".85">
+        <g transform="translate(70 92)"><use class="drop" href="#gDrop"/></g>
+        <g transform="translate(132 96) scale(.85)"><use class="drop" href="#gDrop"/></g>
+      </g>
+
+      <!-- lonely swirl -->
+      <g class="lay" data-lay="swirl">
+        <g transform="translate(158 40)">
+          <path class="rot creamS" style="opacity:.6" d="M0 0 C6 -6 -2 -13 -9 -8 C-16 -3 -12 8 -3 10 C6 12 14 4 12 -6"/>
+        </g>
+        <g transform="translate(44 74) scale(.7)">
+          <path class="rot creamS" style="opacity:.4" d="M0 0 C6 -6 -2 -13 -9 -8 C-16 -3 -12 8 -3 10 C6 12 14 4 12 -6"/>
+        </g>
+      </g>
+
+      <!-- relaxed motes -->
+      <g class="lay" data-lay="calm" fill="#F0DCA0" opacity=".8">
+        <g transform="translate(154 60)"><circle class="fl1" r="2.6"/></g>
+        <g transform="translate(44 70)"><circle class="fl2" r="2"/></g>
+        <g transform="translate(160 96)"><circle class="fl3" r="1.6"/></g>
+      </g>
+
+      <!-- angry steam + vein -->
+      <g class="lay" data-lay="anger">
+        <g class="pinkF" opacity=".9">
+          <g transform="translate(152 28)"><path class="fl1" d="M0 0 c5 -3 5 -9 1 -12 c3 6 -4 7 -1 12 Z"/></g>
+          <g transform="translate(48 34)"><path class="fl2" d="M0 0 c5 -3 5 -9 1 -12 c3 6 -4 7 -1 12 Z"/></g>
+        </g>
+        <g class="jit" style="stroke:#F2A2AC;fill:none;stroke-width:2.4;stroke-linecap:round">
+          <path d="M120 28 l7 -7 M120 28 l9 1 M129 21 l1 9"/>
+        </g>
+      </g>
+
+      <!-- lovesick hearts -->
+      <g class="lay" data-lay="hearts">
+        <g transform="translate(152 44)"><use class="rise pinkF glow" style="color:#F2A2AC" href="#gHeart"/></g>
+        <g transform="translate(44 56) scale(.8)"><use class="rise2 pinkF glow" style="color:#F2A2AC" href="#gHeart"/></g>
+        <g transform="translate(160 82) scale(.62)"><use class="rise3 pinkF glow" style="color:#F2A2AC" href="#gHeart"/></g>
+      </g>
+
+      <!-- hyped stars + sparks -->
+      <g class="lay" data-lay="stars">
+        <g transform="translate(154 36) scale(1.2)"><use class="tw cream glow" style="color:#F0DCA0" href="#gStar"/></g>
+        <g transform="translate(42 46)"><use class="tw2 cream glow" style="color:#F0DCA0" href="#gStar"/></g>
+        <g transform="translate(164 78) scale(.8)"><use class="tw3 cream glow" style="color:#F0DCA0" href="#gStar"/></g>
+        <g class="creamS" style="stroke-width:2.8;opacity:.9">
+          <path class="tw2" d="M100 10 v-8"/><path class="tw3" d="M56 20 l-6 -7"/><path class="tw" d="M144 20 l6 -7"/>
+        </g>
+      </g>
+      <!-- worried sweat -->
+      <g class="lay" data-lay="sweat">
+        <g transform="translate(146 40)"><use class="bobY cyanF" href="#gDrop" style="opacity:.85"/></g>
+      </g>
+
+      <!-- panicked: sweat + bolt -->
+      <g class="lay" data-lay="panic">
+        <g transform="translate(148 42) scale(1.1)"><use class="jit cyanF" href="#gDrop" style="opacity:.9"/></g>
+        <g transform="translate(48 30) scale(1.2)"><use class="flick cream glow" style="color:#F0DCA0" href="#gBolt"/></g>
+        <g class="creamS" style="stroke-width:2.2;opacity:.55">
+          <path class="jit" d="M40 96 l-8 4"/><path class="jit" d="M160 100 l8 4"/>
+        </g>
+      </g>
+
+      <!-- shy: hiding behind hands -->
+      <g class="lay" data-lay="hands">
+        <path class="outline" d="M62 118 C58 104 66 92 76 93 C86 94 90 104 88 114 C86 122 78 126 71 124 C66 122 63 121 62 118 Z"/>
+        <path class="outline" d="M138 122 C143 108 135 95 124 96 C113 97 109 108 111 118 C113 126 122 130 129 128 C134 126 137 125 138 122 Z"/>
+        <g class="limb">
+          <path d="M70 96 C68 104 68 112 70 118"/><path d="M78 94 C77 103 77 111 79 118"/>
+          <path d="M130 99 C132 107 132 115 130 121"/><path d="M122 97 C123 106 123 114 121 121"/>
+        </g>
+      </g>
+
+      <!-- headphone vibing: notes -->
+      <g class="lay" data-lay="notes">
+        <g transform="translate(34 66)"><use class="note1 cyanS" href="#gNote" style="stroke-width:2"/></g>
+        <g transform="translate(30 82) scale(.8)"><use class="note2 cyanS" href="#gNote"/></g>
+        <g transform="translate(160 100) scale(.9)"><use class="note3 cyanS" href="#gNote"/></g>
+      </g>
+
+      <!-- juggling code cubes -->
+      <g class="lay" data-lay="cubes">
+        <g transform="translate(100 138) scale(1.5)"><use id="cube1" class="cyanS glow" style="color:#7FE3F5;stroke-width:1.4" href="#gCube"/></g>
+        <g transform="translate(100 138) scale(1.5)"><use id="cube2" class="cyanS glow" style="color:#7FE3F5;stroke-width:1.4" href="#gCube"/></g>
+        <g transform="translate(100 138) scale(1.5)"><use id="cube3" class="cyanS glow" style="color:#7FE3F5;stroke-width:1.4" href="#gCube"/></g>
+      </g>
+
+      <!-- wiping the glass -->
+      <g class="lay" data-lay="cloth">
+        <g transform="translate(100 74)">
+          <!-- reads as a cloth pressed against the front of the glass: big enough to
+               scan as a rag, translucent fill so the face stays legible under it, but a
+               near-opaque rim in a deeper cyan — a .22 rim would vanish on the white head -->
+          <g id="cloth">
+            <path d="M-15 -9.5 q15 -5 30 0 q4.8 11.5 0 19.5 q-15 5 -30 0 q-4.8 -9.5 0 -19.5 Z" fill="#7FE3F5" fill-opacity=".2" stroke="#4FC9DE" stroke-width="2" stroke-opacity=".92"/>
+            <path d="M-8.5 -5 q8.5 -2.4 17 0" fill="none" stroke="#4FC9DE" stroke-width="1.4" opacity=".6"/>
+            <path d="M-8 4.5 q8 2.2 16 0" fill="none" stroke="#4FC9DE" stroke-width="1.3" opacity=".45"/>
+          </g>
+        </g>
+        <g class="creamS squeak" style="stroke-width:2.2">
+          <path d="M150 44 l7 -6"/><path d="M154 52 l8 -1"/><path d="M146 36 l3 -7"/>
+        </g>
+      </g>
+      <!-- magnifying glass -->
+      <g class="lay" data-lay="magnify">
+        <g transform="translate(140 92)">
+          <g id="magnify">
+            <circle r="15" fill="#7FE3F5" opacity=".1"/>
+            <circle r="15" fill="none" stroke="#F0DCA0" stroke-width="2.6"/>
+            <path d="M10.6 10.6 L21 21" stroke="#F0DCA0" stroke-width="5" stroke-linecap="round"/>
+            <path d="M-7 -6 a9 9 0 0 1 6 -5" fill="none" stroke="#fff" stroke-width="1.8" opacity=".5" stroke-linecap="round"/>
+          </g>
+        </g>
+      </g>
+
+      <!-- low battery: empty cell + tiny plug -->
+      <g class="lay" data-lay="lowbat">
+        <g transform="translate(150 150)">
+          <rect x="-13" y="-7" width="26" height="14" rx="3" fill="none" stroke="#F2A2AC" stroke-width="2.2"/>
+          <path d="M14 -3 h3 v6 h-3" fill="#F2A2AC"/>
+          <rect class="flick" x="-10" y="-4" width="5" height="8" rx="1.4" fill="#F2A2AC"/>
+        </g>
+        <g transform="translate(48 156)">
+          <path d="M0 0 h11" stroke="#F0DCA0" stroke-width="2.2" stroke-linecap="round"/>
+          <rect x="-9" y="-5" width="9" height="10" rx="2" fill="#F0DCA0"/>
+          <path d="M-14 -3 h5 M-14 3 h5" stroke="#F0DCA0" stroke-width="2.2" stroke-linecap="round"/>
+        </g>
+      </g>
+
+      <!-- charging bolts -->
+      <g class="lay" data-lay="charge2">
+        <g transform="translate(152 60) scale(1.2)"><use class="bolt1 cream glow" style="color:#F0DCA0" href="#gBolt"/></g>
+        <g transform="translate(46 74)"><use class="bolt2 cream glow" style="color:#F0DCA0" href="#gBolt"/></g>
+        <g transform="translate(100 14) scale(.9)"><use class="bolt3 cream glow" style="color:#F0DCA0" href="#gBolt"/></g>
+      </g>
+
+      <!-- wi-fi searching -->
+      <g class="lay" data-lay="wifi">
+        <g transform="translate(12 16)">
+        <g id="dish">
+          <path d="M141 104 L141 88" stroke="#F0DCA0" stroke-width="2.6" stroke-linecap="round"/>
+          <!-- fill and rim split apart: a group-level opacity would drag the 2.2 rim
+               down with it and the bowl would disappear against the dark stage -->
+          <path d="M128 84 A16 16 0 0 1 154 84 Z" fill="#F0DCA0" fill-opacity=".22" stroke="none"/>
+          <path d="M128 84 A16 16 0 0 1 154 84 Z" fill="none" stroke="#F0DCA0" stroke-width="2.2" stroke-linejoin="round"/>
+          <circle cx="141" cy="88" r="2.4" fill="#F0DCA0"/>
+          <path d="M134 110 h14" stroke="#F0DCA0" stroke-width="2.6" stroke-linecap="round"/>
+        </g>
+        <g fill="none" stroke="#7FE3F5" stroke-width="2.4" stroke-linecap="round">
+          <path class="arc1" d="M152 74 a15 15 0 0 1 0 -18"/>
+          <path class="arc2" d="M160 78 a24 24 0 0 0 0 -26"/>
+          <path class="arc3" d="M168 82 a33 33 0 0 0 0 -34"/>
+        </g>
+        </g>
+      </g>
+      <!-- rainy day: umbrella + digital rain -->
+      <g class="lay" data-lay="rain">
+        <g fill="none" stroke="#7FE3F5" stroke-width="2.2" stroke-linecap="round" opacity=".8">
+          <path class="drop" d="M18 26 v9"/>
+          <path class="drop" style="animation-delay:.18s" d="M34 18 v9"/>
+          <path class="drop" style="animation-delay:.42s" d="M52 30 v9"/>
+          <path class="drop" style="animation-delay:.62s" d="M172 22 v9"/>
+          <path class="drop" style="animation-delay:.84s" d="M186 34 v9"/>
+          <path class="drop" style="animation-delay:1s"   d="M158 12 v9"/>
+        </g>
+        <g class="bobY">
+          <path d="M98 32 C106 4 154 -2 162 24 C142 34 118 38 98 32 Z" fill="#7FE3F5" opacity=".2"/>
+          <path d="M98 32 C106 4 154 -2 162 24 C142 34 118 38 98 32 Z" fill="none" stroke="#7FE3F5" stroke-width="2.4" stroke-linejoin="round"/>
+          <g fill="none" stroke="#7FE3F5" stroke-width="1.6" opacity=".75">
+            <path d="M130 8 V33"/><path d="M130 8 L112 34"/><path d="M130 8 L148 30"/>
+          </g>
+          <path d="M130 33 L150 92 C152 98 146 100 143 96" fill="none" stroke="#7FE3F5" stroke-width="2.6" stroke-linecap="round"/>
+        </g>
+      </g>
+
+      <!-- night-owl holo device -->
+      <g class="lay" data-lay="holo">
+        <g transform="translate(118 128) rotate(-14)">
+          <rect class="holoScreen" x="-10" y="-15" width="20" height="30" rx="3"/>
+          <rect x="-10" y="-15" width="20" height="30" rx="3" fill="none" stroke="#7FE3F5" stroke-width="1.8"/>
+          <g fill="#7FE3F5" opacity=".75">
+            <rect x="-6" y="-11" width="12" height="1.6" rx=".8"/>
+            <rect x="-6" y="-6" width="9" height="1.6" rx=".8"/>
+            <rect x="-6" y="-1" width="11" height="1.6" rx=".8"/>
+            <rect x="-6" y="4" width="7" height="1.6" rx=".8"/>
+          </g>
+          <rect class="holoLine" x="-9" y="-13" width="18" height="2.6" rx="1.3" fill="#7FE3F5" opacity=".9"/>
+        </g>
+        <g transform="translate(140 108)"><use class="fl1 cyanF" href="#gSpark" style="opacity:.5"/></g>
+      </g>
+
+      <!-- shh! -->
+      <g class="lay" data-lay="shh">
+        <ellipse class="outline" cx="103" cy="119" rx="9.5" ry="7"/>
+        <path class="outline" d="M99 87 C97 96 97.5 108 100 114 L105 114 C106 106 105 96 103.5 87 C102.4 83.4 100 83.6 99 87 Z"/>
+        <path class="limb" d="M102 94 C101 101 101 107 102 112"/>
+      </g>
+
+    </g><!-- /fx -->
+
+   </g><!-- /bodyMove -->
+  </g><!-- /peek -->
+ </g><!-- /float -->
+</g><!-- /drift -->
+</svg>
+</main>
+<div id="caption" class="micro"><span id="cap-dot"></span><b id="cap-text"></b></div>
+
+<!-- ================= DOCK ================= -->
+<div id="dock" class="shell">
+  <input id="chat-input" type="text" autocomplete="off" placeholder="Say something to Emo…" aria-label="Message Emo">
+  <button id="send-btn" title="Send" aria-label="Send message">
+    <svg viewBox="0 0 20 20"><path d="M2.6 9.2 17 3 11.4 17.4 9.2 11.4Z" fill="currentColor" stroke="currentColor" stroke-width="1.1" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<!-- ================= BEHAVIOUR PANEL ================= -->
+<section id="panel" class="glass shell" aria-label="Behaviour library">
+  <div id="panel-inner">
+    <div id="tabs" role="tablist">
+      <button role="tab" data-tab="mood" class="on">Mood</button>
+      <button role="tab" data-tab="rest">Rest</button>
+      <button role="tab" data-tab="play">Play</button>
+      <button role="tab" data-tab="world">World</button>
+    </div>
+    <div id="chips"></div>
+    <div id="footbar">
+      <span id="auto-dot" class="live"></span>
+      <span class="micro">autopilot</span>
+      <button id="auto-btn" class="ibtn" title="Toggle autopilot" aria-pressed="true" style="width:26px;height:26px;border-radius:8px">
+        <svg viewBox="0 0 20 20" style="width:12px;height:12px"><path d="M6 4.4v11.2M14 4.4v11.2"/></svg>
+      </button>
     </div>
   </div>
-
-  <div class="icon-controls-group">
-    <!-- MODE BADGE: shown on laptop -->
-    <span id="mode-badge" title="Running in Laptop Mode">🖥 LAPTOP</span>
-    <!-- SILENT MODE BADGE -->
-    <span id="silent-badge" title="Silent Mode — text only, no speaking">🔇 SILENT</span>
-    <!-- SILENT MODE TOGGLE -->
-    <button id="silent-toggle-btn" class="vector-icon-btn" title="Toggle Silent Mode (text-only replies)">
-      <svg id="silent-icon-speaker" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-      <svg id="silent-icon-mute" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
-    </button>
-    <!-- SCREENSHOT BUTTON (laptop only) -->
-    <button id="screenshot-btn" class="vector-icon-btn" title="Take Screenshot" style="display:none">
-      <svg viewBox="0 0 24 24"><path d="M20 5h-3.17L15 3H9L7.17 5H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-8 13a5 5 0 110-10 5 5 0 010 10zm0-8a3 3 0 100 6 3 3 0 000-6z"/></svg>
-    </button>
-    <!-- VECTOR ICON: CAMERA -->
-    <button id="cam-toggle-btn" class="vector-icon-btn" title="Toggle Camera & Vision">
-      <svg viewBox="0 0 24 24"><path d="M12 9a3 3 0 100 6 3 3 0 000-6zm-7-3h3.17L9.41 4.41A2 2 0 0110.83 4h2.34c.53 0 1.04.21 1.42.59L15.83 6H19a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2zm7 11a5 5 0 100-10 5 5 0 000 10z"/></svg>
-    </button>
-    <!-- VECTOR ICON: ENROLL FACE -->
-    <button id="face-enroll-btn" class="vector-icon-btn" title="Save Face as Boss" style="display:none">
-      <svg viewBox="0 0 24 24"><path d="M12 2a5 5 0 100 10 5 5 0 000-10zm0 14c-5.33 0-8 2.67-8 4v1h16v-1c0-1.33-2.67-4-8-4z"/></svg>
-    </button>
-    <!-- VECTOR ICON: GITHUB MEMORY SYNC -->
-    <button id="memory-sync-btn" class="vector-icon-btn" title="Sync Memory with GitHub (Push / Pull across Laptop & Phone)">
-      <svg viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
-    </button>
-    <!-- VECTOR ICON: MICROPHONE -->
-    <button id="mic-toggle-btn" class="vector-icon-btn" title="Toggle Continuous Microphone">
-      <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.41 2.72 6.23 6 6.72V21h2v-3.28c3.28-.49 6-3.31 6-6.72h-1.7z"/></svg>
-    </button>
-  </div>
-</div>
-<canvas id="webcam-canvas" width="320" height="240" style="display:none"></canvas>
-
-<!-- SPEECH BUBBLE DIALOG -->
-<div id="speech-bubble">
-  <div id="bubble-text">Hi! I'm EMO, your companion.</div>
-  <img id="screenshot-preview" alt="Screenshot" title="Click to enlarge" onclick="this.style.display='none'" />
-</div>
-
-<!-- ENLARGED EMO STAGE -->
-<div id="stage" title="click me to talk">
-<svg id="wisp" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="EMO spirit">
-  <defs>
-    <radialGradient id="skin" cx="34%" cy="26%" r="82%">
-      <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="58%"  stop-color="#fbfbfc"/>
-      <stop offset="100%" stop-color="#dfdfe4"/>
-    </radialGradient>
-    <radialGradient id="skinBody" cx="34%" cy="18%" r="90%">
-      <stop offset="0%"   stop-color="#ffffff"/>
-      <stop offset="70%"  stop-color="#fcfcfd"/>
-      <stop offset="100%" stop-color="#e6e6ea"/>
-    </radialGradient>
-    <clipPath id="headClip">
-      <path d="M100 21 C131 20.5 152.5 40 153 66.5 C153.5 92.5 131 113.5 100.5 113.5 C70 113.5 48 94.5 47.5 68 C47 41.5 69 21.5 100 21 Z"/>
-    </clipPath>
-  </defs>
-
-  <g id="look">
-   <g id="float">
-    <g id="bodyMove">
-
-      <!-- ============ BODY ============ -->
-      <g id="body">
-        <path class="outline" fill="url(#skinBody)" d="
-          M85.5 102
-          C81 115 78.5 140 78 165
-          q3.2 5 6.5 0 q3.2 5 6.5 0 q3.2 5 6.5 0
-          L98 141
-          C98 137 102.6 137 102.6 141
-          L103.5 165
-          q3.2 5 6.5 0 q3.2 5 6.5 0 q3.2 5 6.5 0
-          C122.5 140 119.5 115 115 102 Z"/>
-        <path class="limb" d="M88 105 C83 116 81.5 132 82.5 150"/>
-        <path class="limb" d="M112.5 105 C117.5 116 119 132 118 150"/>
-      </g>
-
-      <g id="armThink" class="fx">
-        <path class="outline" fill="url(#skinBody)" d="
-          M90 116
-          C85 126 86 138 90.5 143
-          C94 147 99.5 146 101 141
-          C102.5 135 99.5 125 95 116 Z"/>
-      </g>
-
-      <!-- ============ HEAD ============ -->
-      <g id="headTilt">
-       <g id="breathe">
-        <path class="outline" fill="url(#skin)"
-          d="M100 21 C131 20.5 152.5 40 153 66.5 C153.5 92.5 131 113.5 100.5 113.5 C70 113.5 48 94.5 47.5 68 C47 41.5 69 21.5 100 21 Z"/>
-
-        <g clip-path="url(#headClip)">
-          <ellipse cx="136" cy="106" rx="48" ry="32" fill="#d9d9df" opacity=".5"/>
-          <ellipse cx="76" cy="40" rx="32" ry="21" fill="#ffffff" opacity=".9"/>
-        </g>
-
-        <g id="blush">
-          <ellipse class="blush" cx="76" cy="95" rx="9.5" ry="4.8"/>
-          <ellipse class="blush" cx="128" cy="95" rx="9.5" ry="4.8"/>
-        </g>
-
-        <!-- eyes -->
-        <g id="eyeL" class="eye">
-          <ellipse class="spot open" cx="82" cy="48" rx="11" ry="12.4"/>
-          <path class="lid" d="M71 46 q11 10 22 0"/>
-          <path class="cross" d="M75 41 l14 14 M89 41 l-14 14"/>
-        </g>
-        <g id="eyeR" class="eye">
-          <ellipse class="spot open" cx="127" cy="70" rx="13" ry="14.2"/>
-          <path class="lid" d="M114 68 q13 11 26 0"/>
-          <path class="cross" d="M135 63 l-16 15"/>
-        </g>
-
-        <ellipse class="spot" cx="72" cy="82" rx="5.2" ry="5.8"/>
-        <path id="mouth" class="mouth" d="M97 90 q5.5 5.5 11 0"/>
-       </g>
-      </g>
-    </g>
-
-    <!-- FX LAYERS -->
-    <g id="fxLayer">
-      <g id="fxSparkle" class="fx">
-        <g transform="translate(30,44) scale(1.2)"><path class="cream tw" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
-        <g transform="translate(172,60) scale(1)"><path class="cream tw2" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
-        <g transform="translate(24,80) scale(.7)"><path class="cream tw3" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
-      </g>
-      <g id="fxExcite" class="fx">
-        <g class="pop">
-          <path class="creamStroke" d="M158 34 l14 -9"/>
-          <path class="creamStroke" d="M162 46 l16 -1"/>
-          <path class="creamStroke" d="M156 24 l7 -13"/>
-        </g>
-      </g>
-      <g id="fxQuestion" class="fx">
-        <text class="glyph pop" x="167" y="42" font-size="34" fill="var(--cream)">?</text>
-      </g>
-      <g id="fxDots" class="fx">
-        <circle class="dot1" cx="158" cy="26" r="3.1" fill="#fff"/>
-        <circle class="dot2" cx="170" cy="24" r="3.1" fill="#fff"/>
-        <circle class="dot3" cx="182" cy="22" r="3.1" fill="#fff"/>
-      </g>
-      <g id="fxBang" class="fx">
-        <g class="pop">
-          <text class="glyph" x="171" y="30" font-size="34" fill="var(--cream)">!</text>
-          <path class="creamStroke" d="M40 40 l-11 -6"/>
-          <path class="creamStroke" d="M38 52 l-13 1"/>
-          <path class="creamStroke" d="M46 30 l-6 -11"/>
-          <path class="creamStroke" d="M150 88 l12 5"/>
-          <path class="creamStroke" d="M154 78 l13 -1"/>
-        </g>
-      </g>
-      <g id="fxWorry" class="fx">
-        <path class="creamStroke jitter" d="M40 36 q5 -5 0 -10 q-5 -5 0 -10"/>
-        <path class="creamStroke jitter" d="M160 46 q5 -5 0 -10 q-5 -5 0 -10"/>
-      </g>
-      <g id="fxAngry" class="fx">
-        <g class="jitter">
-          <path class="creamStroke" d="M150 24 l0 12"/>
-          <path class="creamStroke" d="M144 30 l12 0"/>
-          <path class="creamStroke" d="M164 36 l0 10"/>
-          <path class="creamStroke" d="M159 41 l10 0"/>
-        </g>
-      </g>
-      <g id="fxSwirl" class="fx">
-        <g transform="translate(164,26)"><path class="creamStroke spin"
-          d="M0 0 a4 4 0 1 1 4 -4 a8 8 0 1 1 -9 8 a12 12 0 1 1 14 -12"/></g>
-      </g>
-      <g id="fxZzz" class="fx">
-        <text class="glyph z1" x="146" y="34" font-size="15" fill="#fff">z</text>
-        <text class="glyph z2" x="154" y="24" font-size="19" fill="#fff">z</text>
-        <text class="glyph z3" x="164" y="14" font-size="23" fill="#fff">z</text>
-      </g>
-      <g id="fxHeart" class="fx">
-        <g transform="translate(34,46) scale(1.6)"><path class="pinkFill heart1"
-          d="M0 5 C-6 -1 -5 -7 -1.8 -7 C-0.6 -7 0 -6.2 0 -5.4 C0 -6.2 0.6 -7 1.8 -7 C5 -7 6 -1 0 5 Z"/></g>
-        <g transform="translate(170,66) scale(1.2)"><path class="pinkFill heart2"
-          d="M0 5 C-6 -1 -5 -7 -1.8 -7 C-0.6 -7 0 -6.2 0 -5.4 C0 -6.2 0.6 -7 1.8 -7 C5 -7 6 -1 0 5 Z"/></g>
-      </g>
-      <g id="fxCalm" class="fx">
-        <g transform="translate(31,88) scale(.62)"><path class="cream tw" d="M0 -9 C1.6 -2.8 2.8 -1.6 9 0 C2.8 1.6 1.6 2.8 0 9 C-1.6 2.8 -2.8 1.6 -9 0 C-2.8 -1.6 -1.6 -2.8 0 -9 Z"/></g>
-        <circle class="cream tw2" cx="172" cy="52" r="2.4"/>
-        <circle class="cream tw3" cx="178" cy="78" r="1.8"/>
-        <circle class="cream tw2" cx="28" cy="60" r="1.8"/>
-      </g>
-      <g id="fxSigh" class="fx">
-        <g class="pop" opacity=".75">
-          <circle cx="44" cy="96" r="3.4" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
-          <circle cx="37" cy="101" r="2.2" fill="none" stroke="#8a8a8a" stroke-width="1.6"/>
-        </g>
-      </g>
-    </g>
-   </g>
-  </g>
-</svg>
-</div>
-
-<!-- AI CHAT CONTAINER -->
-<div id="chat-container">
-  <input type="text" id="chat-input" placeholder="Talk to EMO..." autocomplete="off" />
-  <button id="send-btn">SEND</button>
-</div>
-
+</section>
 <script>
 (function(){
-  "use strict";
+"use strict";
 
-  /* ────────── SILENT MODE STATE ────────── */
-  var silentMode = false;
-  var silentToggleBtn = document.getElementById('silent-toggle-btn');
-  var silentBadge = document.getElementById('silent-badge');
-  var silentIconSpeaker = document.getElementById('silent-icon-speaker');
-  var silentIconMute = document.getElementById('silent-icon-mute');
+var $ = function(id){ return document.getElementById(id); };
+var emo      = $("emo");
+var mouthEl  = $("mouth");
+var blushEl  = $("blush");
+var armWrap  = $("armWrap");
+var headTilt = $("headTilt");
+var eyeL     = $("eyeL"), eyeR = $("eyeR");
+var gazeL    = eyeL.querySelector(".gaze"), gazeR = eyeR.querySelector(".gaze");
+var gum      = $("gum"), burst = $("burst");
+var bubble   = $("speech-bubble");
+var bubbleText = $("bubble-text");
+var typing   = $("typing");
+var capText  = $("cap-text"), caption = $("caption");
+var stage    = $("stage");
+var lays     = {};
+Array.prototype.forEach.call(emo.querySelectorAll("[data-lay]"), function(n){
+  lays[n.getAttribute("data-lay")] = n;
+});
 
-  function setSilentMode(on) {
-    silentMode = on;
-    if (silentBadge) silentBadge.classList.toggle('on', on);
-    if (silentToggleBtn) silentToggleBtn.classList.toggle('active', on);
-    if (silentIconSpeaker) silentIconSpeaker.style.display = on ? 'none' : 'block';
-    if (silentIconMute) silentIconMute.style.display = on ? 'block' : 'none';
-    // Disable mic in silent mode
-    if (on && autoListenEnabled) {
-      autoListenEnabled = false;
-      if (recognition) { try { recognition.stop(); } catch(e){} }
-      stopListening();
-    }
-  }
+/* ───────────── mouth shapes ───────────── */
+var M = {
+  smile : "M95 89 q7.5 7 15 0",
+  small : "M97 90 q5.5 5.5 11 0",
+  tiny  : "M99 91 q4 4 8 0",
+  flat  : "M97 92 h12",
+  frown : "M95 94 q7.5 -7 15 0",
+  wobble: "M94 92 q3.7 -4.6 7.4 0 q3.7 4.6 7.4 0",
+  o     : "M102 85 a4.8 5.8 0 1 0 .1 0",
+  grin  : "M94 87 q9 11 18 0 z",
+  smirk : "M95 92 C99 96 106 95 111 88",
+  pout  : "M99.4 92 c1.5 -2.7 5.2 -2.7 6.7 0 c-1.5 2.5 -5.2 2.5 -6.7 0 z",
+  yawn  : "M92 87 q10 -4 20 0 q-2 17 -10 17 q-8 0 -10 -17 z",
+  zig   : "M92 90 l4 4 l4 -4 l4 4 l4 -4",
+  open  : "M96 88 q6 10 12 0 q-6 4 -12 0 z"
+};
+var talkShapes = [M.small, M.o, M.open, M.grin, M.tiny];
 
-  if (silentToggleBtn) {
-    silentToggleBtn.addEventListener('click', function() {
-      setSilentMode(!silentMode);
-      var bubbleText = document.getElementById('bubble-text');
-      if (silentMode) {
-        bubbleText.textContent = "Silent mode ON — I'll reply in text only, Boss.";
-      } else {
-        bubbleText.textContent = "Voice mode ON — I can speak again, Boss!";
-        speakText("Voice mode is back on, Boss!");
-      }
-    });
-  }
+/* ───────────── behaviour registry ─────────────
+   eyes  : spot closed cross heart star spiral hollow puppy droop wink
+   cls   : motion presets on #emo
+   lay   : overlay ids to switch on
+   seq   : [ms, patch] timeline; loop with dur                       */
+var S = {};
+function def(k,o){ o.key=k; S[k]=o; }
+/* ── the original fifteen moods ── */
+def("happy",     {g:"mood",n:"Happy",      mouth:"smile", tilt:-4, lay:["sparkle"]});
+def("excited",   {g:"mood",n:"Excited",    mouth:"grin",  tilt:-7, lay:["excite"], cls:["bounce"]});
+def("curious",   {g:"mood",n:"Curious",    mouth:"tiny",  tilt:10, lay:["question"]});
+def("thinking",  {g:"mood",n:"Thinking",   mouth:"flat",  tilt:-9, lay:["dots"], arm:true, eyeT:["scaleY(.62)","scaleY(.75)"]});
+def("surprised", {g:"mood",n:"Surprised",  mouth:"o",     tilt:0,  lay:["bang"], eyes:"hollow"});
+def("relaxed",   {g:"mood",n:"Relaxed",    mouth:"small", tilt:2,  lay:["calm"], eyes:"closed", cls:["slow"], tint:"cream"});
+def("love",      {g:"mood",n:"Love",       mouth:"smile", tilt:-3, lay:["hearts"], eyes:"heart", blush:true, tint:"pink"});
+def("shy",       {g:"mood",n:"Shy",        mouth:"tiny",  tilt:14, blush:true, cls:["turn"], eyeT:["translateX(-3px)","translateX(-3px)"]});
+def("sad",       {g:"mood",n:"Sad",        mouth:"frown", tilt:11, lay:["tears"], cls:["droop"], tint:"cyan", eyeT:["scaleY(.85)","scaleY(.85)"]});
+def("worried",   {g:"mood",n:"Worried",    mouth:"wobble",tilt:6,  lay:["sweat"], tint:"cyan"});
+def("lonely",    {g:"mood",n:"Lonely",     mouth:"frown", tilt:-11,lay:["swirl"], cls:["droop","slow"]});
+def("tired",     {g:"mood",n:"Tired",      mouth:"wobble",tilt:8,  eyes:"droop", cls:["droop","slow"]});
+def("sleepy",    {g:"mood",n:"Sleepy",     mouth:"tiny",  tilt:13, eyes:"closed", lay:["zzz"], cls:["droop","slow"], gaze:false});
+def("angry",     {g:"mood",n:"Angry",      mouth:"flat",  tilt:-6, lay:["anger"], cls:["shake"], tint:"pink", eyeT:["scaleY(.66)","scaleY(.66)"]});
+def("frustrated",{g:"mood",n:"Frustrated", mouth:"zig",   tilt:5,  lay:["anger"], cls:["shake"], tint:"pink"});
 
-  var svg      = document.getElementById('wisp');
-  var stage    = document.getElementById('stage');
-  var look     = document.getElementById('look');
-  var headTilt = document.getElementById('headTilt');
-  var eyeL     = document.getElementById('eyeL');
-  var eyeR     = document.getElementById('eyeR');
-  var openL    = eyeL.querySelector('.open');
-  var openR    = eyeR.querySelector('.open');
-  var mouth    = document.getElementById('mouth');
-  var blush    = document.getElementById('blush');
+/* ── cute & expressive ── */
+def("lovesick",  {g:"mood",n:"Heart eyes", mouth:"grin",  tilt:-5, eyes:"heart", lay:["hearts","love"], cls:["bounce"], blush:true, tint:"pink"});
+def("hyped",     {g:"mood",n:"Stars in eyes",mouth:"grin",tilt:-6, eyes:"star",  lay:["stars"], cls:["bounce"], tint:"cream"});
+def("mischief",  {g:"mood",n:"Mischievous",mouth:"smirk", tilt:-9, eyes:"wink",  lay:["sparkle"], tint:"cream"});
+def("dizzy",     {g:"mood",n:"Dizzy",      mouth:"wobble",tilt:0,  eyes:"spiral",cls:["woozy","sway"], gaze:false, tint:"cyan"});
+def("pout",      {g:"mood",n:"Pouting",    mouth:"pout",  tilt:16, eyes:"puppy", cls:["turn","slow"], blush:true, gaze:false, tint:"pink"});
+def("blushing",  {g:"mood",n:"Shy blush",  mouth:"tiny",  tilt:9,  eyes:"closed",lay:["hands"], blush:true, gaze:false, tint:"pink"});
+def("panicked",  {g:"mood",n:"Panicked",   mouth:"zig",   tilt:0,  eyes:"hollow",lay:["panic"], cls:["shiver"], tint:"pink"});
+def("confused",  {g:"mood",n:"Confused",   mouth:"tiny",  eyes:"spot", lay:["question"], gaze:false, dur:7200, loop:true,
+  seq:[[0,{tilt:-32}],[1800,{tilt:32}],[3600,{tilt:-32}],[5400,{tilt:32}]]});
+/* ── idle & sleeping ── */
+def("deepsleep", {g:"rest",n:"Deep sleep",  mouth:"tiny", tilt:14, eyes:"closed",
+  lay:["zzz"], cls:["deep","slow","droop"], gaze:false, tint:"cyan"});
 
-  var M = {
-    smile:  'M95 89 q7.5 7 15 0',
-    small:  'M97 90 q5.5 5.5 11 0',
-    tiny:   'M99 91 q4 4 8 0',
-    flat:   'M97 92 h12',
-    frown:  'M95 94 q7.5 -7 15 0',
-    wobble: 'M94 92 q3.7 -4.6 7.4 0 q3.7 4.6 7.4 0',
-    o:      'M102 85 a4.8 5.8 0 1 0 .1 0',
-    grin:   'M94 87 q9 11 18 0 z',
-    none:   'M102 91 h0'
-  };
+def("dozing",    {g:"rest",n:"Dozing off",  mouth:"flat", eyes:"droop", gaze:false, dur:7400, loop:true, tint:"cyan",
+  seq:[[0,   {eyes:"droop", mouth:"flat", tilt:4,  cls:["droop","slow"], lay:[]}],
+       [1500,{tilt:7, cls:["droop","slow","nod"]}],
+       [4300,{eyes:"hollow", mouth:"o", tilt:-3, cls:["jerk"], lay:["bang"]}],
+       [5300,{eyes:"droop", mouth:"flat", tilt:6, cls:["droop","slow","nod"], lay:[]}]]});
 
-  var EMO = {
-    happy:      {mouth:'small',  eyes:'open',   tilt:-4, fx:'fxSparkle', eyeT:['','']                                   },
-    excited:    {mouth:'grin',   eyes:'open',   tilt:-7, fx:'fxExcite',  eyeT:['scale(1.05)','scale(1.05)'], body:'bounce'},
-    curious:    {mouth:'tiny',   eyes:'open',   tilt:8,  fx:'fxQuestion',eyeT:['','']                                   },
-    thinking:   {mouth:'flat',   eyes:'open',   tilt:-9, fx:'fxDots',    eyeT:['scaleY(.62)','scaleY(.75)'], arm:true    },
-    surprised:  {mouth:'o',      eyes:'open',   tilt:0,  fx:'fxBang',    eyeT:['scale(1.16)','scale(1.16)']              },
+def("yawning",   {g:"rest",n:"Yawn & stretch", mouth:"yawn", eyes:"closed", gaze:false, dur:4200, loop:true,
+  seq:[[0,   {eyes:"closed", mouth:"yawn", tilt:-7, cls:["stretchUp"], arm:true, lay:[]}],
+       [1500,{mouth:"flat", tilt:-2, cls:[], arm:false}],
+       [2000,{eyes:"spot",  mouth:"small", tilt:0}],
+       [2900,{eyes:"closed"}],
+       [3100,{eyes:"spot"}],
+       [3600,{eyes:"droop", mouth:"tiny", tilt:6}]]});
 
-    sad:        {mouth:'frown',  eyes:'open',   tilt:6,  fx:'',          eyeT:['rotate(-16deg) scale(.78)','rotate(-16deg) scale(.8)'], body:'droop'},
-    tired:      {mouth:'frown',  eyes:'closed', tilt:5,  fx:'fxSigh',    eyeT:['',''],                        body:'droop slow'},
-    sleepy:     {mouth:'frown',  eyes:'closed', tilt:-6, fx:'fxZzz',     eyeT:['',''],                        body:'slow'  },
-    worried:    {mouth:'wobble', eyes:'open',   tilt:4,  fx:'fxWorry',   eyeT:['scaleY(.7)','scaleY(.72)'],   body:'shake' },
-    lonely:     {mouth:'frown',  eyes:'open',   tilt:10, fx:'',          eyeT:['scale(.85)','scale(.86)'],    body:'droop' },
+def("curled",    {g:"rest",n:"Curled up",   form:"curled", lay:["zzz"], cls:["deep","slow"], gaze:false, tint:"pink"});
 
-    angry:      {mouth:'wobble', eyes:'xeyes',  tilt:-5, fx:'fxAngry',   eyeT:['',''],                        body:'shake' },
-    frustrated: {mouth:'flat',   eyes:'open',   tilt:-3, fx:'fxSwirl',   eyeT:['rotate(14deg) scaleY(.6)','rotate(-14deg) scaleY(.62)']},
-    shy:        {mouth:'tiny',   eyes:'open',   tilt:9,  fx:'',          eyeT:['scale(.9)','scale(.9)'],      blush:true   },
-    love:       {mouth:'smile',  eyes:'open',   tilt:-5, fx:'fxHeart',   eyeT:['',''],                        blush:true   },
-    relaxed:    {mouth:'small',  eyes:'closed', tilt:-3, fx:'fxCalm',    eyeT:['',''],                        body:'slow'  }
-  };
+def("nightowl",  {g:"rest",n:"Night owl",   mouth:"tiny", tilt:11, eyes:"droop",
+  lay:["holo","glasses"], cls:["slow"], gaze:false, tint:"cyan"});
 
-  var ORDER = ['happy','excited','curious','thinking','surprised',
-               'sad','tired','sleepy','worried','lonely',
-               'angry','frustrated','shy','love','relaxed'];
+/* ── playful idle ── */
+def("vibing",    {g:"play",n:"Headphone vibing", mouth:"small", tilt:0, eyes:"closed",
+  lay:["cans","notes"], cls:["bop","sway"], gaze:false, tint:"cyan"});
 
-  var BODY_CLASSES = ['bounce','droop','shake','slow'];
-  var current = 'happy';
+def("gum",       {g:"play",n:"Bubblegum pop", mouth:"o", eyes:"spot", dur:6200, loop:true, gaze:false, tint:"pink",
+  seq:[[0,   {mouth:"o", eyes:"spot", tilt:-2, cls:[], lay:[], fire:"blow"}],
+       [3300,{eyes:"hollow", mouth:"zig", tilt:0, cls:["shiver"], lay:["burst"], fire:"pop"}],
+       [4400,{eyes:"spot", mouth:"small", cls:[], lay:[]}]]});
 
-  function setEmotion(name){
-    var e = EMO[name];
-    if(!e) return;
-    current = name;
+def("peeking",   {g:"play",n:"Peeking",     mouth:"tiny", eyes:"spot", gaze:false, dur:8000, loop:true,
+  seq:[[0,   {peek:true,  tilt:9,  mouth:"tiny"}],
+       [2600,{tilt:-9}],
+       [5000,{tilt:9, mouth:"smirk"}],
+       [6600,{peek:false, tilt:0, mouth:"small"}]]});
 
-    mouth.setAttribute('d', M[e.mouth] || M.small);
+def("juggling",  {g:"play",n:"Juggling sparks", mouth:"grin", tilt:-3, eyes:"spot",
+  lay:["cubes"], cls:["sway"], tint:"cyan"});
 
-    eyeL.classList.remove('closed','xeyes');
-    eyeR.classList.remove('closed','xeyes');
-    if(e.eyes === 'closed'){ eyeL.classList.add('closed'); eyeR.classList.add('closed'); }
-    if(e.eyes === 'xeyes'){  eyeL.classList.add('xeyes');  eyeR.classList.add('xeyes');  }
+def("wiping",    {g:"play",n:"Wiping the glass", mouth:"tiny", tilt:-4, eyes:"spot",
+  lay:["cloth"], cls:["sway"], arm:true, tint:"cyan"});
 
-    eyeL.style.transform = (e.eyeT && e.eyeT[0]) || '';
-    eyeR.style.transform = (e.eyeT && e.eyeT[1]) || '';
+def("inspecting",{g:"play",n:"Inspecting",  mouth:"tiny", tilt:4, eyes:"spot",
+  lay:["magnify"], cls:["walk"], gaze:false, eyeT:["scale(1.1)","scale(1.1)"], tint:"cream"});
 
-    blush.style.opacity = e.blush ? 1 : 0;
+/* ── context & environment ── */
+def("lowbattery",{g:"world",n:"Low battery", mouth:"wobble", tilt:12, eyes:"droop",
+  lay:["lowbat"], cls:["crawl","slow"], dim:true, gaze:false, tint:"pink"});
+def("charging",  {g:"world",n:"Charging up", mouth:"grin", tilt:-5, eyes:"star",
+  lay:["charge","charge2"], cls:["bounce"], tint:"cyan"});
+def("wifi",      {g:"world",n:"Searching signal", mouth:"tiny", eyes:"spot", lay:["wifi"], cls:["sway"], gaze:false, dur:6800, loop:true, tint:"cream",
+  seq:[[0,{tilt:-12}],[1700,{tilt:12}],[3400,{tilt:-12}],[5100,{tilt:12}]]});
+def("rainy",     {g:"world",n:"Rainy day",  mouth:"small", tilt:3, eyes:"spot",
+  lay:["rain"], cls:["slow"], tint:"cyan"});
+def("quiet",     {g:"world",n:"Quiet mode", mouth:"flat", tilt:-4, eyes:"spot",
+  lay:["shh","band"], arm:true, gaze:false, tint:"pink"});
+/* ───────────── render engine ───────────── */
+var TINT = { cream:"#F0DCA0", pink:"#F2A2AC", cyan:"#7FE3F5", green:"#8FE9B3" };
+var MOTION = ["bounce","droop","slow","deep","shake","shiver","crawl","nod",
+              "jerk","bop","sway","walk","woozy","turn","stretchUp"];
+var ONESHOT = { jerk:1, stretchUp:1, squish:1 };
 
-    document.querySelectorAll('.fx').forEach(function(n){ n.classList.remove('on'); });
-    if(e.fx){ var t = document.getElementById(e.fx); if(t) t.classList.add('on'); }
-    if(e.arm) document.getElementById('armThink').classList.add('on');
+var current  = "happy";
+var baseTilt = 0;
+var gazeOn   = true;
+var talking  = false;
+var timers   = [];
+var loopT    = null;
 
-    BODY_CLASSES.forEach(function(c){ svg.classList.remove(c); });
-    if(e.body) e.body.split(' ').forEach(function(c){ svg.classList.add(c); });
+function clearSeq(){
+  timers.forEach(clearTimeout); timers = [];
+  if(loopT){ clearTimeout(loopT); loopT = null; }
+}
+function reflow(el){ void el.getBoundingClientRect().width; }
 
-    baseTilt = e.tilt || 0;
-    applyTilt();
-  }
+function setMotion(list){
+  list = list || [];
+  MOTION.forEach(function(c){
+    if(list.indexOf(c) < 0) emo.classList.remove(c);
+    else if(ONESHOT[c]) emo.classList.remove(c);
+  });
+  if(list.length){ reflow(emo); list.forEach(function(c){ emo.classList.add(c); }); }
+}
+function setLays(list){
+  list = list || [];
+  Object.keys(lays).forEach(function(k){
+    lays[k].classList.toggle("on", list.indexOf(k) >= 0);
+  });
+}
+function setMouth(k){ if(!M[k]) k = "small"; mouthEl.setAttribute("d", M[k]); emo.dataset.mouth = k; }
+function setTint(name){
+  document.documentElement.style.setProperty("--tint", TINT[name] || name || TINT.cream);
+}
+function applyHead(){
+  headTilt.style.transform =
+    "rotate(" + (baseTilt + gaze.tiltNow).toFixed(2) + "deg) translate(" +
+    gaze.hx.toFixed(2) + "px," + gaze.hy.toFixed(2) + "px)";
+}
+function fire(what){
+  if(what === "blow"){ gum.classList.remove("blow"); reflow(gum); gum.classList.add("blow"); }
+  if(what === "pop"){ burst.classList.remove("go"); reflow(burst); burst.classList.add("go"); }
+}
 
-  var tx=0, ty=0, cx=0, cy=0, baseTilt=0;
+function applyPatch(p){
+  if(p.eyes   !== undefined) emo.dataset.eyes = p.eyes;
+  if(p.mouth  !== undefined && !talking) setMouth(p.mouth);
+  if(p.tilt   !== undefined){ baseTilt = p.tilt; applyHead(); }
+  if(p.cls    !== undefined) setMotion(p.cls);
+  if(p.lay    !== undefined) setLays(p.lay);
+  if(p.blush  !== undefined) blushEl.style.opacity = p.blush ? ".85" : "0";
+  if(p.arm    !== undefined) armWrap.style.opacity = p.arm ? "1" : "0";
+  if(p.form   !== undefined) emo.classList.toggle("curled", p.form === "curled");
+  if(p.dim    !== undefined) emo.classList.toggle("dimmed", !!p.dim);
+  if(p.peek   !== undefined) emo.classList.toggle("peeking", !!p.peek);
+  if(p.eyeT   !== undefined){ eyeL.style.transform = p.eyeT[0] || ""; eyeR.style.transform = p.eyeT[1] || ""; }
+  if(p.tint   !== undefined) setTint(p.tint);
+  if(p.fire) fire(p.fire);
+}
+function setState(key, opt){
+  var s = S[key];
+  if(!s) return;
+  opt = opt || {};
+  clearSeq();
+  current = key;
+  talking = talking && !opt.stopTalk;
+  /* one-shot fx classes are never self-clearing: drop them when leaving their state
+     so a half-grown bubble can't keep inflating on top of the next behaviour */
+  if(key !== "gum"){ gum.classList.remove("blow"); burst.classList.remove("go"); }
 
-  window.addEventListener('pointermove', function(ev){
-    var r = stage.getBoundingClientRect();
-    var hx = r.left + r.width/2;
-    var hy = r.top  + r.height*0.38;
-    tx = Math.max(-1, Math.min(1, (ev.clientX - hx) / (r.width*0.95)));
-    ty = Math.max(-1, Math.min(1, (ev.clientY - hy) / (r.height*0.95)));
-  }, {passive:true});
-
-  function applyTilt(){
-    headTilt.style.transform = 'rotate(' + (baseTilt + cx*5) + 'deg)';
-  }
-
-  (function frame(){
-    cx += (tx - cx) * 0.08;
-    cy += (ty - cy) * 0.08;
-
-    look.setAttribute('transform',
-      'translate(' + (cx*5).toFixed(2) + ',' + (cy*3.4).toFixed(2) + ')');
-
-    var ex = (cx*3.2).toFixed(2), ey = (cy*2.6).toFixed(2);
-    openL.setAttribute('transform','translate('+ex+','+ey+')');
-    openR.setAttribute('transform','translate('+ex+','+ey+')');
-
-    applyTilt();
-    requestAnimationFrame(frame);
-  })();
-
-  function blink(){
-    if(!eyeL.classList.contains('closed') && !eyeL.classList.contains('xeyes')){
-      openL.style.transform = 'scaleY(.06)';
-      openR.style.transform = 'scaleY(.06)';
-      setTimeout(function(){
-        openL.style.transform = '';
-        openR.style.transform = '';
-      }, 110);
-    }
-    setTimeout(blink, 2200 + Math.random()*4200);
-  }
-  setTimeout(blink, 1800);
-
-  stage.addEventListener('click', function(){
-    svg.classList.remove('squish');
-    void svg.offsetWidth;
-    svg.classList.add('squish');
-    toggleListening();
-    setTimeout(function(){ svg.classList.remove('squish'); }, 480);
+  applyPatch({
+    eyes : s.eyes  || "spot",
+    mouth: s.mouth || "small",
+    tilt : s.tilt  || 0,
+    cls  : s.cls   || [],
+    lay  : s.lay   || [],
+    blush: !!s.blush,
+    arm  : !!s.arm,
+    form : s.form  || "",
+    dim  : !!s.dim,
+    peek : false,
+    eyeT : s.eyeT  || ["",""],
+    tint : s.tint  || "cream"
   });
 
-  /* ---------- PERFECTLY SYNCED LIP-SYNC TALKING MOUTH ---------- */
-  var talkInterval = null;
-  var talkShapes = [
-    'M94 87 q9 11 18 0 z',         // open grin
-    'M97 90 q5.5 5.5 11 0',         // small smile
-    'M102 85 a4.8 5.8 0 1 0 .1 0',  // open 'O'
-    'M95 89 q7.5 7 15 0',          // smile
-    'M97 92 h12'                   // flat
-  ];
+  gazeOn = (s.gaze !== false);
+  if(s.seq) runSeq(s);
 
-  function startTalkingMouth() {
-    stopTalkingMouth();
-    var idx = 0;
-    talkInterval = setInterval(function() {
-      idx = (idx + 1) % talkShapes.length;
-      mouth.setAttribute('d', talkShapes[idx]);
-    }, 115);
+  capText.textContent = s.n;
+  caption.classList.add("show");
+  Array.prototype.forEach.call(document.querySelectorAll("#chips button"), function(b){
+    b.setAttribute("aria-pressed", b.dataset.k === key ? "true" : "false");
+  });
+}
+function runSeq(s){
+  (function cycle(){
+    s.seq.forEach(function(step){
+      timers.push(setTimeout(function(){ applyPatch(step[1]); }, step[0]));
+    });
+    if(s.loop) loopT = setTimeout(cycle, s.dur || 4000);
+  })();
+}
+/* legacy-compatible alias used all over the backend wiring */
+function setEmotion(name){
+  if(!S[name]) name = "happy";
+  holdUntil = Date.now() + 9000;
+  setState(name);
+}
+
+/* ───────────── blinking ───────────── */
+var BLINKABLE = { spot:1, wink:1, puppy:1, hollow:1, heart:0, star:0 };
+function blink(){
+  if(BLINKABLE[emo.dataset.eyes]){
+    var b = emo.querySelectorAll(".blinker");
+    b[0].style.transform = "scaleY(.06)";
+    b[1].style.transform = "scaleY(.06)";
+    setTimeout(function(){ b[0].style.transform = ""; b[1].style.transform = ""; }, 110);
   }
+  setTimeout(blink, 2400 + Math.random() * 4200);
+}
+setTimeout(blink, 1800);
 
-  function stopTalkingMouth() {
-    if (talkInterval) {
-      clearInterval(talkInterval);
-      talkInterval = null;
-    }
-    var e = EMO[current];
-    if (e && M[e.mouth]) {
-      mouth.setAttribute('d', M[e.mouth]);
-    } else {
-      mouth.setAttribute('d', M.small);
-    }
+/* ───────────── cursor tracking (rAF lerp) ───────────── */
+var gaze = { tx:0, ty:0, x:0, y:0, hx:0, hy:0, tiltNow:0 };
+window.addEventListener("pointermove", function(e){
+  var r = stage.getBoundingClientRect();
+  gaze.tx = Math.max(-1, Math.min(1, (e.clientX - (r.left + r.width/2)) / (r.width/2)));
+  gaze.ty = Math.max(-1, Math.min(1, (e.clientY - (r.top + r.height/2)) / (r.height/2)));
+  poke();
+}, { passive:true });
+
+(function loop(){
+  var k = 0.09;
+  var tx = gazeOn ? gaze.tx : 0, ty = gazeOn ? gaze.ty : 0;
+  gaze.x += (tx * 3.6 - gaze.x) * k;
+  gaze.y += (ty * 2.8 - gaze.y) * k;
+  gaze.hx += (tx * 3.2 - gaze.hx) * k;
+  gaze.hy += (ty * 2.2 - gaze.hy) * k;
+  gaze.tiltNow += (tx * 3.4 - gaze.tiltNow) * k;
+  var t = "translate(" + gaze.x.toFixed(2) + " " + gaze.y.toFixed(2) + ")";
+  gazeL.setAttribute("transform", t);
+  gazeR.setAttribute("transform", t);
+  applyHead();
+  requestAnimationFrame(loop);
+})();
+/* ───────────── autopilot director ───────────── */
+var lastUser   = Date.now();
+var holdUntil  = 0;          /* explicit choices win for a while */
+var autoOn     = true;
+var ctxState   = null;       /* device-driven override */
+var autoDot    = $("auto-dot");
+
+var PLAY   = ["vibing","gum","peeking","juggling","wiping","inspecting"];
+var MICRO  = ["curious","relaxed","happy","thinking","mischief","confused","hyped"];
+
+function poke(){
+  var wasResting = ({deepsleep:1,dozing:1,curled:1,sleepy:1,nightowl:1})[current];
+  lastUser = Date.now();
+  if(wasResting && holdUntil < Date.now()){
+    holdUntil = Date.now() + 2600;
+    setState("surprised");
+    setTimeout(function(){ if(holdUntil <= Date.now() + 100) settle(); }, 1500);
   }
+}
+function settle(){
+  holdUntil = 0;
+  if(ctxState) setState(ctxState); else setState("happy");
+}
+function pick(a){ return a[Math.floor(Math.random() * a.length)]; }
 
-  /* ---------- REAL NEURAL CHILD VOICE TTS WITH EXACT PLAYING EVENT SYNC ---------- */
-  function speakText(text, callback) {
-    if (!text) { if(callback) callback(); return; }
+setInterval(function(){
+  var now = Date.now();
+  if(now < holdUntil || talking) return;
+  var idle = now - lastUser;
 
+  if(ctxState && current !== ctxState && idle > 4000){ setState(ctxState); return; }
+  if(!autoOn || ctxState) return;
+
+  var h = new Date().getHours();
+  if(idle > 240000)      { if(current !== "curled" && current !== "deepsleep") setState(pick(["deepsleep","curled"])); return; }
+  if(idle > 150000)      { if(current !== "dozing") setState("dozing"); return; }
+  if(idle > 90000)       { if(current !== "yawning" && current !== "dozing") setState("yawning"); return; }
+  if(idle > 26000){
+    var since = now - (window.__lastAct || 0);
+    if(since < 12000) return;
+    window.__lastAct = now;
+    if((h >= 23 || h < 5) && Math.random() < .5) setState("nightowl");
+    else setState(Math.random() < .62 ? pick(PLAY) : pick(MICRO));
+  }
+}, 1200);
+
+$("auto-btn").addEventListener("click", function(){
+  autoOn = !autoOn;
+  this.setAttribute("aria-pressed", autoOn ? "true" : "false");
+  autoDot.classList.toggle("live", autoOn);
+});
+/* ───────────── real device context ───────────── */
+var ctxBadge = $("ctx-badge"), ctxIcon = $("ctx-icon"), ctxLabel = $("ctx-label");
+var ICON = {
+  lowbat : '<rect x="1.4" y="4.6" width="11" height="7" rx="1.6"/><path d="M13.6 6.8v2.6"/><path d="M3.2 6.4h2v3.8h-2z" fill="currentColor"/>',
+  charge : '<path d="M9 1.6 4 8.8h3.2L6.6 14.4 11.8 7H8.4z"/>',
+  offline: '<path d="M2 6.2a9 9 0 0 1 12 0"/><path d="M4.6 9a5.4 5.4 0 0 1 6.8 0"/><path d="M8 12.4h.01"/><path d="M2.4 13.6 13.6 2.4"/>',
+  night  : '<path d="M13 9.8A5.6 5.6 0 0 1 6.2 3a5.8 5.8 0 1 0 6.8 6.8z"/>',
+  rain   : '<path d="M4.4 8.6a3 3 0 0 1 .4-6 4.2 4.2 0 0 1 7.8 1.2 2.6 2.6 0 0 1-.4 5.2"/><path d="M5.4 11v2.4M8 11.6v2.4M10.6 11v2.4"/>',
+  quiet  : '<path d="M8 1.8a2.2 2.2 0 0 1 2.2 2.2v4a2.2 2.2 0 0 1-4.4 0V4A2.2 2.2 0 0 1 8 1.8z"/><path d="M8 12v2.2"/>'
+};
+function showCtx(icon, label){
+  if(!icon){ ctxBadge.classList.remove("show"); return; }
+  ctxIcon.innerHTML = ICON[icon] || "";
+  ctxLabel.textContent = label;
+  ctxBadge.classList.add("show");
+}
+function evalContext(){
+  var st = null, icon = null, label = "";
+  if(battery && battery.charging && battery.level < .995){ st = "charging"; icon = "charge"; label = "charging"; }
+  else if(battery && !battery.charging && battery.level <= .2){ st = "lowbattery"; icon = "lowbat"; label = Math.round(battery.level*100) + "%"; }
+  else if(navigator.onLine === false){ st = "wifi"; icon = "offline"; label = "no signal"; }
+  else if(weatherRain){ st = "rainy"; icon = "rain"; label = "rain"; }
+  else {
+    var h = new Date().getHours();
+    if(h >= 23 || h < 5){ icon = "night"; label = "late"; }
+  }
+  if(quietMode){ st = "quiet"; icon = "quiet"; label = "quiet"; }
+  showCtx(icon, label);
+  ctxState = st;
+  if(st && Date.now() > holdUntil && current !== st) setState(st);
+  if(!st && ({lowbattery:1,charging:1,wifi:1,rainy:1,quiet:1})[current] && Date.now() > holdUntil) settle();
+}
+var battery = null, weatherRain = false, quietMode = false;
+if(navigator.getBattery){
+  navigator.getBattery().then(function(b){
+    battery = b;
+    ["chargingchange","levelchange"].forEach(function(ev){ b.addEventListener(ev, evalContext); });
+    evalContext();
+  }).catch(function(){});
+}
+window.addEventListener("online",  evalContext);
+window.addEventListener("offline", evalContext);
+setInterval(evalContext, 60000);
+
+/* optional: a backend that knows the weather flips the umbrella on */
+fetch("/api/weather").then(function(r){ return r.json(); }).then(function(d){
+  weatherRain = !!(d && (d.rain || /rain|drizzle|shower|storm/i.test(d.condition || "")));
+  evalContext();
+}).catch(function(){});
+/* ───────────── behaviour panel ───────────── */
+var chips = $("chips"), panel = $("panel"), panelBtn = $("panel-btn");
+function buildChips(group){
+  chips.innerHTML = "";
+  Object.keys(S).forEach(function(k){
+    if(S[k].g !== group) return;
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = S[k].n;
+    b.dataset.k = k;
+    b.setAttribute("aria-pressed", current === k ? "true" : "false");
+    b.addEventListener("click", function(){
+      lastUser = Date.now();
+      holdUntil = Date.now() + 30000;
+      if(k === "quiet"){ quietMode = !quietMode; }
+      setState(k);
+    });
+    chips.appendChild(b);
+  });
+}
+buildChips("mood");
+Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(t){
+  t.addEventListener("click", function(){
+    Array.prototype.forEach.call(document.querySelectorAll("#tabs button"), function(o){ o.classList.remove("on"); });
+    t.classList.add("on");
+    buildChips(t.dataset.tab);
+  });
+});
+panelBtn.addEventListener("click", function(){
+  var open = panel.classList.toggle("open");
+  panelBtn.setAttribute("aria-expanded", open ? "true" : "false");
+});
+
+/* ───────────── touch reactions ───────────── */
+var squishT = null;
+stage.addEventListener("pointerdown", function(){
+  poke();
+  emo.classList.remove("squish"); reflow(emo); emo.classList.add("squish");
+  /* .squish #breathe overrides the idle breathing animation, so it must not linger */
+  clearTimeout(squishT);
+  squishT = setTimeout(function(){ emo.classList.remove("squish"); }, 480);
+});
+stage.addEventListener("click", function(){
+  if(Date.now() < holdUntil) return;
+  holdUntil = Date.now() + 2800;
+  setState(pick(["lovesick","hyped","mischief","excited","blushing"]));
+  setTimeout(function(){ if(Date.now() >= holdUntil - 150) settle(); }, 2700);
+});
+stage.addEventListener("pointerenter", function(){ poke(); });
+["keydown","pointerdown","focusin"].forEach(function(ev){
+  document.addEventListener(ev, function(){ lastUser = Date.now(); }, { passive:true });
+});
+/* ───────────── speech bubble ───────────── */
+var bubbleTimer = null;
+function showBubble(text, hold){
+  clearTimeout(bubbleTimer);
+  bubbleText.textContent = text;
+  typing.hidden = true;
+  bubble.classList.add("show");
+  if(hold !== 0){
+    bubbleTimer = setTimeout(hideBubble, hold || Math.min(11000, 2600 + text.length * 55));
+  }
+}
+function showTyping(){
+  clearTimeout(bubbleTimer);
+  bubbleText.textContent = "";
+  typing.hidden = false;
+  bubble.classList.add("show");
+}
+function hideBubble(){
+  bubble.classList.remove("show");
+  typing.hidden = true;
+}
+
+/* ───────────── mood from words ───────────── */
+var CUE = [
+  [/\b(love|adore|cute|sweet|miss you|marry|kiss|crush)\b/i,        "lovesick"],
+  [/\b(amazing|awesome|incredible|epic|let'?s go|insane|wow+)\b/i,  "hyped"],
+  [/\b(haha|lol|lmao|joking|kidding|prank|tease|sneaky)\b/i,        "mischief"],
+  [/\b(sorry|sad|unhappy|cry|hurts|lonely|miss)\b/i,                "pout"],
+  [/\b(what|huh|confus|unclear|don'?t understand|which one)\b/i,    "confused"],
+  [/\b(help|error|failed|broke|crash|urgent|oh no)\b/i,             "panicked"],
+  [/\b(thanks|thank you|good boy|well done|proud|nice work)\b/i,    "blushing"],
+  [/\b(angry|mad|stop|annoying|hate)\b/i,                           "angry"],
+  [/\b(tired|sleep|bed|goodnight|exhausted|nap)\b/i,                "sleepy"],
+  [/\b(think|hmm+|maybe|consider|calculating|let me)\b/i,           "thinking"],
+  [/\b(music|song|playlist|beat|vibe|spotify)\b/i,                  "vibing"],
+  [/\b(dizzy|spinning|too much|overwhelm)\b/i,                      "dizzy"],
+  [/\b(shh+|quiet|class|library|meeting|mute)\b/i,                   "quiet"],
+  [/\b(rain|raining|storm|wet|umbrella)\b/i,                        "rainy"],
+  [/\b(battery|charging|charger|plug|power)\b/i,                     "charging"],
+  [/\b(wifi|offline|no internet|connection|signal)\b/i,             "wifi"],
+  [/\?\s*$/,                                                         "curious"]
+];
+function inferEmotion(text){
+  if(!text) return "happy";
+  for(var i = 0; i < CUE.length; i++) if(CUE[i][0].test(text)) return CUE[i][1];
+  return "happy";
+}
+/* ───────────── lip sync ───────────── */
+var talkTimer = null, talkIdx = 0;
+function startTalkingMouth(){
+  if(talking) return;
+  talking = true;
+  emo.classList.add("talking");
+  talkTimer = setInterval(function(){
+    talkIdx = (talkIdx + 1) % talkShapes.length;
+    mouthEl.setAttribute("d", talkShapes[talkIdx]);
+  }, 115);
+}
+function stopTalkingMouth(){
+  talking = false;
+  clearInterval(talkTimer);
+  talkTimer = null;
+  emo.classList.remove("talking");
+  setMouth((S[current] && S[current].mouth) || "small");
+}
+
+/* ───────────── voice ───────────── */
+var silentMode = false;
+var silentBadge = $("silent-badge");
+function speakText(text, callback){
+  if(silentMode || !text){ if(callback) callback(); return; }
+  var done = false;
+  function finish(){ if(done) return; done = true; stopTalkingMouth(); if(callback) callback(); }
+  try{
     var audio = new Audio("/api/tts?text=" + encodeURIComponent(text));
+    audio.addEventListener("playing", startTalkingMouth);
+    audio.addEventListener("pause", finish);
+    audio.addEventListener("ended", finish);
+    audio.addEventListener("error", function(){ if(!done) browserSpeak(text, finish); });
+    var p = audio.play();
+    if(p && p.catch) p.catch(function(){ if(!done) browserSpeak(text, finish); });
+  }catch(e){ browserSpeak(text, finish); }
+}
+function browserSpeak(text, done){
+  if(!("speechSynthesis" in window)){ done(); return; }
+  try{
+    var u = new SpeechSynthesisUtterance(text);
+    u.pitch = 1.8; u.rate = 1.05;
+    u.onstart = startTalkingMouth;
+    u.onend = done;
+    u.onerror = done;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){ done(); }
+}
+/* ───────────── chat ───────────── */
+var input = $("chat-input"), sendBtn = $("send-btn"), shot = $("screenshot-preview");
+var pendingMessage = null;
 
-    audio.addEventListener('playing', function() {
-      startTalkingMouth();
-    });
+function sendChat(){
+  var val = input.value.trim();
+  if(!val) return;
+  input.value = "";
+  lastUser = Date.now();
+  holdUntil = Date.now() + 6000;
+  setState("thinking");
+  showTyping();
 
-    audio.addEventListener('pause', function() {
-      stopTalkingMouth();
-    });
-
-    audio.addEventListener('ended', function() {
-      stopTalkingMouth();
-      if (callback) callback();
-    });
-
-    audio.addEventListener('error', function() {
-      stopTalkingMouth();
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        var utt = new SpeechSynthesisUtterance(text);
-        utt.pitch = 1.8;
-        utt.rate = 1.05;
-        utt.onstart = function() { startTalkingMouth(); };
-        utt.onend = function() { stopTalkingMouth(); if (callback) callback(); };
-        utt.onerror = function() { stopTalkingMouth(); if (callback) callback(); };
-        window.speechSynthesis.speak(utt);
-      } else {
-        if (callback) callback();
-      }
-    });
-
-    audio.play().catch(function() {
-      stopTalkingMouth();
-      if (callback) callback();
-    });
-  }
-
-  function inferEmotion(text) {
-    if (!text) return 'happy';
-    var low = text.toLowerCase();
-    if (/happy|great|awesome|yay|wonderful|good|love|like|cool|nice|win|passed/.test(low)) return 'happy';
-    if (/excited|omg|wow|hurray|fantastic/.test(low)) return 'excited';
-    if (/why|what|how|who|where|huh|confused|strange|odd|\?/.test(low)) return 'curious';
-    if (/thinking|calculate|math|think|reason/.test(low)) return 'thinking';
-    if (/surprise|shock|unbelievable|really|no way/.test(low)) return 'surprised';
-    if (/sad|sorry|bad|disappointed|unfortunately|cry|hurt/.test(low)) return 'sad';
-    if (/tired|exhausted|sleep|sigh/.test(low)) return 'tired';
-    if (/stop|no|angry|shut up|annoyed|stupid|hate/.test(low)) return 'angry';
-    if (/love|heart|sweet|cute/.test(low)) return 'love';
-    if (/shy|blush/.test(low)) return 'shy';
-    if (/chill|relax/.test(low)) return 'relaxed';
-    return 'thinking';
-  }
-
-  function sendChat() {
-    var input = document.getElementById('chat-input');
-    var bubbleText = document.getElementById('bubble-text');
-    var val = input.value.trim();
-    if (!val) return;
-
-    var emotion = inferEmotion(val);
-    setEmotion(emotion);
-
-    // Silent mode: show typing indicator instead of "You: ..." 
-    if (silentMode) {
-      bubbleText.innerHTML = '<span style="color:#888">You: ' + val + '</span><br><div class="typing-indicator"><span></span><span></span><span></span></div>';
-    } else {
-      bubbleText.textContent = "You: " + val + "...";
-    }
-    input.value = "";
-
-    fetch("/api/ai/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: val, silent: silentMode })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      var reply = data.reply || "Got it!";
-      bubbleText.textContent = reply;
-      var replyEmo = inferEmotion(reply);
-      setEmotion(replyEmo);
-
-      // ── Handle EMO action payloads ──────────────────────────────
-      var action = data.action;
-      if (action && action.type === "whatsapp_send") {
-        // Tell Android bridge to fire the WhatsApp intent
-        if (window.Android && window.Android.sendWhatsApp) {
-          var sent = window.Android.sendWhatsApp(
-            action.phone,
-            action.message,
-            action.contact
-          );
-          if (!sent) {
-            bubbleText.textContent = "WhatsApp doesn't seem to be installed, Boss!";
-          }
-        } else {
-          // Browser fallback: open the WhatsApp web link
-          window.open(action.url, "_blank");
-        }
-      }
-
-      if (action && action.type === "whatsapp_need_number") {
-        // Prompt Boss to provide the number, then save it
-        var num = prompt(
-          "What's " + action.contact + "'s WhatsApp number? (e.g. +919876543210)"
-        );
-        if (num && num.trim()) {
-          // Save contact via backend API
-          fetch("/api/contacts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: action.contact, phone: num.trim() })
-          }).then(function(r){ return r.json(); }).then(function(res){
-            if (res.ok) {
-              // Retry sending now that we have the number
-              var cleanPhone = num.trim().replace(/[^\d]/g, "");
-              if (window.Android && window.Android.sendWhatsApp) {
-                window.Android.sendWhatsApp(cleanPhone, action.message, action.contact);
-              }
-              bubbleText.textContent = "Saved " + action.contact + " and sending now!";
-              speakText("Saved " + action.contact + " and sending now!");
-            }
-          });
-        }
-      }
-      // ── Handle screenshot response ───────────────────────────────
-      var screenshotEl = document.getElementById('screenshot-preview');
-      if (data.screenshot_b64 && screenshotEl) {
-        screenshotEl.src = 'data:image/png;base64,' + data.screenshot_b64;
-        screenshotEl.style.display = 'block';
-      }
-      // ── Handle windows list ─────────────────────────────────────
-      if (data.windows && data.windows.length) {
-        var winText = "Open apps: " + data.windows.slice(0, 8).join(', ');
-        bubbleText.textContent = winText;
-      }
-      // ── End action handling ──────────────────────────────────────
-
-      // ── Silent mode: text only, no TTS ────────────────────────
-      if (silentMode) {
-        // Just show text — no speaking, no lip-sync, no mic restart
-        setEmotion(replyEmo);
-      } else {
-        speakText(reply, function() {
-          if (autoListenEnabled) {
-            setTimeout(startListening, 300);
-          }
-        });
-      }
-    })
-    .catch(function(){
-      bubbleText.textContent = "I'm right here with you!";
-      setEmotion('love');
-      if (!silentMode) {
-        speakText("I'm right here with you!", function() {
-          if (autoListenEnabled) {
-            setTimeout(startListening, 300);
-          }
-        });
-      }
-    });
-
-  }
-
-  /* ---------- LAPTOP MODE INIT ---------- */
-  (function initLaptopMode() {
-    var isAndroid = /Android/i.test(navigator.userAgent);
-    if (!isAndroid) {
-      // Show laptop mode badge
-      var badge = document.getElementById('mode-badge');
-      if (badge) badge.classList.add('laptop');
-
-      // Show screenshot button
-      var ssBtn = document.getElementById('screenshot-btn');
-      if (ssBtn) {
-        ssBtn.style.display = 'flex';
-        ssBtn.addEventListener('click', function() {
-          var bubbleText = document.getElementById('bubble-text');
-          var screenshotEl = document.getElementById('screenshot-preview');
-          bubbleText.textContent = "Taking screenshot...";
-          fetch('/api/control', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'take_screenshot' })
-          }).then(function(r){ return r.json(); }).then(function(data) {
-            if (data.screenshot_b64 && screenshotEl) {
-              screenshotEl.src = 'data:image/png;base64,' + data.screenshot_b64;
-              screenshotEl.style.display = 'block';
-              bubbleText.textContent = "Here's what's on your screen, Boss!";
-              speakText("Here's what's on your screen, Boss!");
-            }
-          }).catch(function() {
-            bubbleText.textContent = "Screenshot failed, Boss!";
-          });
-        });
-      }
-    }
-  })();
-
-  /* ---------- GITHUB MEMORY SYNC HANDLER ---------- */
-  var memorySyncBtn = document.getElementById('memory-sync-btn');
-  if (memorySyncBtn) {
-    memorySyncBtn.addEventListener('click', function(e) {
-      var bubbleText = document.getElementById('bubble-text');
-      var action = "sync";
-
-      // Allow shift-click or prompt to choose specific action: Pull vs Push vs Sync
-      if (e.shiftKey) {
-        var choice = prompt("GitHub Memory Sync Options:\n1. type 'pull' -> Overwrite local memory from GitHub (phone -> laptop)\n2. type 'push' -> Upload local memory to GitHub\n3. type 'sync' -> 1-Click Pull & Push (default)", "sync");
-        if (!choice) return;
-        var cleanChoice = choice.trim().toLowerCase();
-        if (cleanChoice === "pull" || cleanChoice === "push" || cleanChoice === "sync") {
-          action = cleanChoice;
-        }
-      }
-
-      setEmotion('thinking');
-      if (action === "pull") {
-        bubbleText.textContent = "Pulling latest memory from GitHub...";
-      } else if (action === "push") {
-        bubbleText.textContent = "Pushing local memory to GitHub...";
-      } else {
-        bubbleText.textContent = "Syncing memory with GitHub...";
-      }
-
-      fetch("/api/memory/" + action, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data.ok) {
-          setEmotion('excited');
-          var msg = data.message || ("Memory synced! " + (data.chat_count || 0) + " messages loaded, Boss!");
-          bubbleText.textContent = msg;
-          if (!silentMode) speakText(msg);
-        } else {
-          setEmotion('worried');
-          var err = "Memory sync failed: " + (data.error || data.message || "git sync error");
-          bubbleText.textContent = err;
-        }
-      })
-      .catch(function(err){
-        setEmotion('worried');
-        bubbleText.textContent = "Memory sync request failed, Boss!";
-      });
-    });
-  }
-
-  /* ---------- CONTINUOUS LOOP WEB AUDIO MIC ---------- */
-  var recognition = null;
-  var isListening = false;
-  var autoListenEnabled = false;
-  var micToggleBtn = document.getElementById('mic-toggle-btn');
-
-  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-    var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-    recognition = new SpeechRec();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = function() {
-      isListening = true;
-      if (micToggleBtn) micToggleBtn.classList.add("active");
-      setEmotion('curious');
-      document.getElementById('bubble-text').textContent = "Listening to you...";
-    };
-
-    recognition.onresult = function(event) {
-      var transcript = '';
-      for (var i = event.resultIndex; i < event.results.length; i++) {
-        transcript += event.results[i][0].transcript;
-      }
-      document.getElementById('chat-input').value = transcript;
-      if (event.results[0].isFinal) {
-        sendChat();
-      }
-    };
-
-    recognition.onerror = function(e) { stopListening(); };
-    recognition.onend = function() { stopListening(); };
-  }
-
-  function toggleListening() {
-    if (!recognition) return;
-    if (isListening || autoListenEnabled) {
-      autoListenEnabled = false;
-      recognition.stop();
-      stopListening();
-    } else {
-      autoListenEnabled = true;
-      startListening();
-    }
-  }
-
-  function startListening() {
-    if (recognition && !isListening) {
-      try { recognition.start(); } catch (e) {}
-    }
-  }
-
-  function stopListening() {
-    isListening = false;
-    if (micToggleBtn && !autoListenEnabled) micToggleBtn.classList.remove("active");
-  }
-
-  if (micToggleBtn) micToggleBtn.addEventListener('click', toggleListening);
-
-  document.getElementById('send-btn').addEventListener('click', sendChat);
-  document.getElementById('chat-input').addEventListener('keypress', function(e){
-    if (e.key === 'Enter') sendChat();
+  fetch("/api/ai/chat", {
+    method : "POST",
+    headers: { "Content-Type": "application/json" },
+    body   : JSON.stringify({ message: val, silent: silentMode })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){ handleReply(data, val); })
+  .catch(function(){
+    holdUntil = Date.now() + 4000;
+    setState("panicked");
+    showBubble("I can't reach my brain right now.");
+    setTimeout(settle, 4200);
   });
+}
 
-  /* ---------- BACKGROUND VISION, MULTI-PERSON BOSS & GESTURE RECOGNITION ---------- */
-  var cameraStream = null;
-  var cameraActive = false;
-  var visionInterval = null;
-  var lastSpokenVisionTime = 0;
+function handleReply(data, asked){
+  var reply = (data && (data.reply || data.message || data.text)) || "…";
 
-  var camToggleBtn = document.getElementById('cam-toggle-btn');
-  var faceEnrollBtn = document.getElementById('face-enroll-btn');
-  var videoElem = document.getElementById('webcam-view');
-  var canvasElem = document.getElementById('webcam-canvas');
-  var previewWrapper = document.getElementById('camera-preview-wrapper');
-  var statusLed = document.getElementById('status-led');
-
-  function snapFrameB64() {
-    if (!videoElem || !videoElem.videoWidth) return null;
-    var ctx = canvasElem.getContext('2d');
-    ctx.drawImage(videoElem, 0, 0, 320, 240);
-    return canvasElem.toDataURL('image/jpeg', 0.8);
-  }
-
-  var lastSpokenDesc = "";
-  var lastSpokenVisionTime = 0;
-
-  function runVisionAnalysisCycle() {
-    if (!cameraActive) return;
-    var frameB64 = snapFrameB64();
-    if (!frameB64) return;
-
-    statusLed.className = "led-dot scanning";
-
-    fetch("/api/vision/analyze", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: frameB64 })
-    })
-    .then(function(r){ return r.json(); })
-    .then(function(data){
-      if (!cameraActive) return;
-      if (data.known) {
-        statusLed.className = "led-dot recognized";
-
-        var now = Date.now();
-        var msg = data.description || "";
-
-        // Speak ONLY if a gesture/event changed or after 3 minutes (180s)
-        var isNewScene = msg && (msg !== lastSpokenDesc);
-        var isCooldownExpired = (now - lastSpokenVisionTime > 180000);
-
-        if (msg && (isNewScene || isCooldownExpired)) {
-          lastSpokenVisionTime = now;
-          lastSpokenDesc = msg;
-          setEmotion('happy');
-          document.getElementById('bubble-text').textContent = msg;
-          speakText(msg);
-        }
-      } else {
-        statusLed.className = "led-dot scanning";
-      }
-    })
-    .catch(function(){
-      if (cameraActive) statusLed.className = "led-dot";
-    });
-  }
-
-  function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240, facingMode: "user" } })
-    .then(function(stream){
-      cameraStream = stream;
-      videoElem.srcObject = stream;
-      cameraActive = true;
-      previewWrapper.style.display = "block";
-      camToggleBtn.classList.add("active");
-      faceEnrollBtn.style.display = "flex";
-      statusLed.className = "led-dot scanning";
-
-      visionInterval = setInterval(runVisionAnalysisCycle, 4500);
-      runVisionAnalysisCycle();
-    })
-    .catch(function(err){
-      statusLed.className = "led-dot";
-    });
-  }
-
-  function stopCamera() {
-    if (cameraStream) {
-      cameraStream.getTracks().forEach(function(track){ track.stop(); });
-      cameraStream = null;
+  if(data && data.action && data.action.type === "whatsapp_send"){
+    var a = data.action;
+    if(window.Android && window.Android.sendWhatsApp){
+      window.Android.sendWhatsApp(a.phone, a.message, a.contact);
     }
-    cameraActive = false;
-    if (visionInterval) { clearInterval(visionInterval); visionInterval = null; }
-    previewWrapper.style.display = "none";
-    camToggleBtn.classList.remove("active");
-    faceEnrollBtn.style.display = "none";
-    statusLed.className = "led-dot";
+  }
+  if(data && data.action && data.action.type === "whatsapp_need_number"){
+    askForNumber(data.action, asked);
+  }
+  if(data && data.screenshot_b64){
+    shot.src = "data:image/png;base64," + data.screenshot_b64;
+    shot.classList.add("show");
+    setTimeout(function(){ shot.classList.remove("show"); }, 9000);
+  }
+  if(data && data.windows && data.windows.length){
+    capText.textContent = "Open apps: " + data.windows.slice(0, 8).join(", ");
+    caption.classList.add("show");
   }
 
-  if (camToggleBtn) {
-    camToggleBtn.addEventListener('click', function(){
-      if (cameraActive) stopCamera();
-      else startCamera();
-    });
+  var mood = (data && data.emotion && S[data.emotion]) ? data.emotion : inferEmotion(reply);
+  holdUntil = Date.now() + 9000;
+  setState(mood);
+  showBubble(reply, 0);
+  speakText(reply, function(){
+    setTimeout(function(){ if(Date.now() >= holdUntil - 200) hideBubble(); }, 1400);
+    holdUntil = Date.now() + 1800;
+  });
+}
+function askForNumber(action, asked){
+  var num = prompt("What's " + action.contact + "'s WhatsApp number? (e.g. +919876543210)");
+  if(!num || !num.trim()) return;
+  fetch("/api/contacts", {
+    method : "POST",
+    headers: { "Content-Type": "application/json" },
+    body   : JSON.stringify({ name: action.contact, phone: num.trim() })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(res){
+    if(!res || !res.ok) return;
+    var cleanPhone = num.trim().replace(/[^\d]/g, "");
+    if(window.Android && window.Android.sendWhatsApp){
+      window.Android.sendWhatsApp(cleanPhone, action.message, action.contact);
+    }
+    var line = "Saved " + action.contact + " and sending now!";
+    setEmotion("excited");
+    showBubble(line);
+    speakText(line);
+  })
+  .catch(function(){});
+}
+
+sendBtn.addEventListener("click", sendChat);
+input.addEventListener("keydown", function(e){
+  lastUser = Date.now();
+  if(e.key === "Enter") sendChat();
+});
+input.addEventListener("focus", function(){ poke(); if(Date.now() > holdUntil) setState("curious"); });
+
+/* ───────────── silent mode ───────────── */
+$("silent-toggle-btn").addEventListener("click", function(){
+  silentMode = !silentMode;
+  this.classList.toggle("on", silentMode);
+  this.setAttribute("aria-pressed", silentMode ? "true" : "false");
+  silentBadge.classList.toggle("show", silentMode);
+  if(silentMode && "speechSynthesis" in window) speechSynthesis.cancel();
+  setEmotion(silentMode ? "quiet" : "happy");
+});
+
+/* ───────────── laptop mode + screen capture ───────────── */
+var isAndroid = /Android/i.test(navigator.userAgent);
+var modeBadge = $("mode-badge"), shotBtn = $("screenshot-btn");
+if(isAndroid){
+  modeBadge.classList.remove("show");
+  shotBtn.hidden = true;
+}else{
+  modeBadge.classList.add("show");
+}
+shotBtn.addEventListener("click", function(){
+  setEmotion("inspecting");
+  showTyping();
+  fetch("/api/control", {
+    method : "POST",
+    headers: { "Content-Type": "application/json" },
+    body   : JSON.stringify({ action: "take_screenshot" })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){ handleReply(data, "look at my screen"); })
+  .catch(function(){ hideBubble(); setEmotion("worried"); });
+});
+/* ───────────── memory sync (GitHub) ───────────── */
+$("memory-sync-btn").addEventListener("click", function(e){
+  var action = "sync";
+  if(e.shiftKey){
+    var choice = prompt(
+      "Memory sync options:\n" +
+      "  pull  — overwrite local memory from GitHub (phone → laptop)\n" +
+      "  push  — upload local memory to GitHub\n" +
+      "  sync  — pull and push in one go (default)", "sync");
+    if(!choice) return;
+    var c = choice.trim().toLowerCase();
+    if(c === "pull" || c === "push" || c === "sync") action = c;
   }
+  setEmotion("thinking");
+  showBubble(action === "pull" ? "Pulling the latest memory from GitHub…"
+           : action === "push" ? "Pushing local memory up to GitHub…"
+                               : "Syncing memory with GitHub…", 0);
 
-  if (faceEnrollBtn) {
-    faceEnrollBtn.addEventListener('click', function(){
-      var frameB64 = snapFrameB64();
-      if (!frameB64) return;
-      document.getElementById('bubble-text').textContent = "Saving face...";
-      setEmotion('thinking');
+  fetch("/api/memory/" + action, {
+    method : "POST",
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data && data.ok){
+      setEmotion("excited");
+      var msg = data.message || ("Memory synced — " + (data.chat_count || 0) + " messages loaded.");
+      showBubble(msg);
+      if(!silentMode) speakText(msg);
+    }else{
+      setEmotion("worried");
+      showBubble("Memory sync failed: " + ((data && (data.error || data.message)) || "git sync error"));
+    }
+  })
+  .catch(function(){
+    setEmotion("worried");
+    showBubble("The memory sync request didn't go through.");
+  });
+});
 
-      fetch("/api/vision/enroll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: frameB64 })
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        if (data.ok) {
-          statusLed.className = "led-dot recognized";
-          setEmotion('excited');
-          document.getElementById('bubble-text').textContent = "I know you now, Boss!";
-          speakText("I know you now, Boss!");
+/* ───────────── microphone ───────────── */
+var recognition = null, isListening = false, autoListen = false;
+var micBtn = $("mic-toggle-btn"), led = $("status-led");
+var SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+if(SpeechRec){
+  recognition = new SpeechRec();
+  recognition.continuous = false;
+  recognition.interimResults = true;
+  recognition.lang = "en-US";
+
+  recognition.onstart = function(){
+    isListening = true;
+    micBtn.classList.add("on");
+    led.classList.add("scanning");
+    if(Date.now() > holdUntil) setState("curious");
+  };
+  recognition.onresult = function(event){
+    var res = event.results[0];
+    var text = res[0].transcript;
+    input.value = text;
+    lastUser = Date.now();
+    if(res.isFinal){
+      input.value = text;
+      sendChat();
+    }
+  };
+  recognition.onerror = function(){
+    isListening = false;
+    led.classList.remove("scanning");
+  };
+  recognition.onend = function(){
+    isListening = false;
+    led.classList.remove("scanning");
+    if(autoListen){
+      setTimeout(function(){
+        if(autoListen && !isListening && !talking){
+          try{ recognition.start(); }catch(e){}
         }
-      });
-    });
-  }
-
-  // Auto-start camera & mic seamlessly if permitted
-  setTimeout(function(){
-    startCamera();
-  }, 1000);
-
-  window.wisp = {
-    setEmotion: setEmotion,
-    emotions: ORDER.slice(),
-    get current(){ return current; },
-    say: function(name, ms){
-      setEmotion(name);
-      clearTimeout(this._t);
-      this._t = setTimeout(function(){ setEmotion('happy'); }, ms || 3000);
+      }, 700);
+    }else{
+      micBtn.classList.remove("on");
     }
   };
 
-  setEmotion('happy');
+  micBtn.addEventListener("click", function(){
+    autoListen = !autoListen;
+    micBtn.classList.toggle("on", autoListen);
+    micBtn.setAttribute("aria-pressed", autoListen ? "true" : "false");
+    if(autoListen){
+      try{ recognition.start(); }catch(e){}
+      setEmotion("curious");
+    }else{
+      try{ recognition.stop(); }catch(e){}
+      led.classList.remove("scanning");
+      setEmotion("relaxed");
+    }
+  });
+}else{
+  micBtn.disabled = true;
+  micBtn.title = "Speech recognition isn't available in this browser";
+}
+/* ───────────── vision ───────────── */
+var video = $("webcam-view"), canvas = $("webcam-canvas");
+var previewWrap = $("camera-preview-wrapper");
+var camBtn = $("cam-toggle-btn"), enrollBtn = $("face-enroll-btn");
+var cameraStream = null, cameraActive = false, visionInterval = null;
+var lastSpokenDesc = "", lastSpokenVisionTime = 0;
+
+function snapFrameB64(){
+  if(!video.videoWidth) return null;
+  var ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, 320, 240);
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
+function runVisionAnalysisCycle(){
+  if(!cameraActive) return;
+  var frameB64 = snapFrameB64();
+  if(!frameB64) return;
+  led.className = "scanning";
+
+  fetch("/api/vision/analyze", {
+    method : "POST",
+    headers: { "Content-Type": "application/json" },
+    body   : JSON.stringify({ image: frameB64 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(!cameraActive) return;
+    if(!data || !data.known){ led.className = "scanning"; return; }
+    led.className = "recognized";
+    var now = Date.now();
+    var msg = data.description || "";
+    if(msg && (msg !== lastSpokenDesc || now - lastSpokenVisionTime > 180000)){
+      lastSpokenVisionTime = now;
+      lastSpokenDesc = msg;
+      setEmotion(inferEmotion(msg));
+      showBubble(msg);
+      speakText(msg);
+    }
+  })
+  .catch(function(){ if(cameraActive) led.className = ""; });
+}
+
+function startCamera(){
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+  navigator.mediaDevices.getUserMedia({ video: { width:320, height:240, facingMode:"user" } })
+  .then(function(stream){
+    cameraStream = stream;
+    cameraActive = true;
+    video.srcObject = stream;
+    previewWrap.classList.add("show");
+    camBtn.classList.add("on");
+    camBtn.setAttribute("aria-pressed", "true");
+    enrollBtn.classList.add("show");
+    led.className = "scanning";
+    visionInterval = setInterval(runVisionAnalysisCycle, 4500);
+    runVisionAnalysisCycle();
+  })
+  .catch(function(){ led.className = ""; });
+}
+function stopCamera(){
+  if(cameraStream){
+    cameraStream.getTracks().forEach(function(t){ t.stop(); });
+    cameraStream = null;
+  }
+  cameraActive = false;
+  if(visionInterval){ clearInterval(visionInterval); visionInterval = null; }
+  previewWrap.classList.remove("show");
+  camBtn.classList.remove("on");
+  camBtn.setAttribute("aria-pressed", "false");
+  enrollBtn.classList.remove("show");
+  led.className = "";
+}
+camBtn.addEventListener("click", function(){ cameraActive ? stopCamera() : startCamera(); });
+
+enrollBtn.addEventListener("click", function(){
+  var frameB64 = snapFrameB64();
+  if(!frameB64) return;
+  setEmotion("thinking");
+  showBubble("Saving your face…", 0);
+  fetch("/api/vision/enroll", {
+    method : "POST",
+    headers: { "Content-Type": "application/json" },
+    body   : JSON.stringify({ image: frameB64 })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(data && data.ok){
+      led.className = "recognized";
+      setEmotion("excited");
+      showBubble("I know you now, Boss!");
+      speakText("I know you now, Boss!");
+    }else{
+      setEmotion("worried");
+      showBubble("I couldn't get a clear look — try again?");
+    }
+  })
+  .catch(function(){ setEmotion("worried"); showBubble("Face enrolment failed."); });
+});
+
+shot.addEventListener("click", function(){ this.classList.remove("show"); });
+setTimeout(startCamera, 1000);
+/* ───────────── public API ───────────── */
+var api = {
+  setEmotion : setEmotion,
+  setState   : setState,
+  say        : function(name, ms){
+    setEmotion(name);
+    clearTimeout(this._t);
+    this._t = setTimeout(function(){ settle(); }, ms || 3000);
+  },
+  speak      : function(text){ showBubble(text); speakText(text); },
+  bubble     : showBubble,
+  autopilot  : function(on){ autoOn = !!on; autoDot.classList.toggle("live", autoOn); },
+  get current(){ return current; },
+  get emotions(){ return Object.keys(S); },
+  get moods(){ return Object.keys(S).filter(function(k){ return S[k].g === "mood"; }); },
+  states     : S
+};
+window.emo  = api;
+window.wisp = api;   /* legacy name kept for existing integrations */
+
+/* ───────────── boot ───────────── */
+setState("happy");
+showBubble("Hi, I'm Emo — your companion.", 6000);
+document.addEventListener("visibilitychange", function(){
+  if(!document.hidden) lastUser = Date.now();
+});
 })();
 </script>
 </body>
